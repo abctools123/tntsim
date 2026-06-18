@@ -3,1280 +3,362 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TNTSim — Blast Physics Simulator</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<title>TNTSim — 3D Blast Physics Simulator</title>
 <style>
-:root {
-  --bg: #0a0a0c;
-  --surface: #111116;
-  --surface2: #16161d;
-  --border: #1e1e2a;
-  --text: #c8c8d4;
-  --text-dim: #6a6a7a;
-  --accent: #ff3b30;
-  --accent-glow: #ff6b4a;
-  --tnt: #ff2d20;
-  --explosion: #ff9500;
-  --stone: #5a5a6e;
-  --obsidian: #2d1b4e;
-  --bedrock: #1a1a22;
-  --grid: #191925;
-  --success: #30d158;
-  --warning: #ff9f0a;
-  --font-mono: 'Share Tech Mono', monospace;
-  --font-sans: 'Inter', system-ui, sans-serif;
-}
-
-* { margin:0; padding:0; box-sizing:border-box; }
-
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font-sans);
-  overflow: hidden;
-  height: 100vh;
-  width: 100vw;
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
-  pointer-events: none;
-  z-index: 0;
-}
-
-#app {
-  position: relative;
-  width: 100vw;
-  height: 100vh;
-  z-index: 1;
-}
-
-canvas {
-  display: block;
-  position: absolute;
-  inset: 0;
-}
-
-/* ---- HUD Top Bar ---- */
-#hud-top {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 16px;
-  background: linear-gradient(180deg, rgba(10,10,12,0.95) 0%, rgba(10,10,12,0) 100%);
-  z-index: 10;
-  pointer-events: none;
-}
-
-#hud-top > * { pointer-events: auto; }
-
-.hud-brand {
-  font-family: var(--font-mono);
-  font-size: 14px;
-  color: var(--text-dim);
-  letter-spacing: 2px;
-  text-transform: uppercase;
-}
-
-.hud-brand span { color: var(--accent); font-weight: 700; }
-
-.hud-stats {
-  display: flex;
-  gap: 20px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--text-dim);
-}
-
-.hud-stats .val {
-  color: var(--accent-glow);
-  font-weight: 700;
-}
-
-/* ---- Bottom Bar / Toolbar ---- */
-#toolbar {
-  position: absolute;
-  bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 4px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 4px;
-  z-index: 10;
-  backdrop-filter: blur(12px);
-}
-
-.tool-btn {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-dim);
-  background: transparent;
-  border: none;
-  border-radius: 7px;
-  padding: 8px 14px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  letter-spacing: 0.5px;
-  white-space: nowrap;
-}
-
-.tool-btn:hover {
-  background: var(--surface2);
-  color: var(--text);
-}
-
-.tool-btn.active {
-  background: var(--accent);
-  color: #fff;
-  box-shadow: 0 0 12px rgba(255,59,48,0.3);
-}
-
-.tool-btn .key { opacity: 0.4; font-size: 10px; }
-
-/* ---- Help Panel ---- */
-#help-panel {
-  position: absolute;
-  top: 56px;
-  right: 16px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 16px 18px;
-  z-index: 10;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-dim);
-  line-height: 1.8;
-  backdrop-filter: blur(12px);
-  display: none;
-}
-
-#help-panel.visible { display: block; }
-
-#help-panel kbd {
-  display: inline-block;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 1px 6px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text);
-  margin: 0 2px;
-}
-
-/* ---- Block Indicator ---- */
-#block-indicator {
-  position: absolute;
-  pointer-events: none;
-  border: 2px solid rgba(255,255,255,0.3);
-  border-radius: 2px;
-  z-index: 5;
-  display: none;
-}
-
-/* ---- Flash overlay ---- */
-#flash {
-  position: fixed;
-  inset: 0;
-  background: radial-gradient(circle, rgba(255,150,0,0.15) 0%, transparent 70%);
-  pointer-events: none;
-  z-index: 2;
-  opacity: 0;
-  transition: opacity 0.08s ease-out;
-}
-
-#flash.fire { opacity: 1; }
-
-/* ---- Settings Panel ---- */
-#settings-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.6);
-  z-index: 100;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  backdrop-filter: blur(4px);
-}
-#settings-overlay.open { display: flex; }
-
-#settings-panel {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 0;
-  width: min(520px, 92vw);
-  max-height: 85vh;
-  overflow-y: auto;
-  box-shadow: 0 24px 80px rgba(0,0,0,0.6);
-  display: flex;
-  flex-direction: column;
-}
-
-.settings-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 18px 20px;
-  border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  background: var(--surface);
-  z-index: 1;
-  border-radius: 14px 14px 0 0;
-}
-.settings-header h3 {
-  font-family: var(--font-mono);
-  font-size: 14px;
-  color: var(--text);
-  text-transform: uppercase;
-  letter-spacing: 2px;
-}
-.settings-header h3 span { color: var(--accent); }
-.settings-close {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  color: var(--text-dim);
-  font-family: var(--font-mono);
-  font-size: 14px;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.15s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.settings-close:hover { color: var(--text); background: var(--border); }
-
-.settings-body {
-  padding: 16px 20px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.setting-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.setting-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-}
-.setting-label {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  white-space: nowrap;
-  min-width: 90px;
-}
-.setting-value {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--accent-glow);
-  font-weight: 700;
-  min-width: 32px;
-  text-align: right;
-}
-
-/* Sliders */
-input[type="range"] {
-  -webkit-appearance: none;
-  flex: 1;
-  height: 6px;
-  background: var(--surface2);
-  border-radius: 3px;
-  outline: none;
-  border: 1px solid var(--border);
-}
-input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--accent);
-  cursor: pointer;
-  border: 2px solid var(--surface);
-  box-shadow: 0 0 8px rgba(255,59,48,0.4);
-}
-input[type="range"]::-webkit-slider-thumb:hover {
-  transform: scale(1.1);
-}
-
-/* Toggle */
-.setting-toggle {
-  width: 44px;
-  height: 24px;
-  border-radius: 12px;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  cursor: pointer;
-  position: relative;
-  transition: background 0.2s;
-  flex-shrink: 0;
-}
-.setting-toggle.on {
-  background: var(--accent);
-  border-color: var(--accent);
-}
-.setting-toggle::after {
-  content: '';
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #fff;
-  transition: transform 0.2s;
-}
-.setting-toggle.on::after { transform: translateX(20px); }
-
-/* Number inputs */
-input[type="number"].setting-num {
-  width: 56px;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  padding: 4px 6px;
-  text-align: center;
-  outline: none;
-}
-input[type="number"].setting-num:focus {
-  border-color: var(--accent);
-}
-
-.settings-divider {
-  border: none;
-  border-top: 1px solid var(--border);
-  margin: 4px 0;
-}
-
-.settings-footer {
-  padding: 14px 20px;
-  border-top: 1px solid var(--border);
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-}
-.settings-btn {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  padding: 8px 18px;
-  border-radius: 7px;
-  cursor: pointer;
-  border: 1px solid var(--border);
-  background: var(--surface2);
-  color: var(--text-dim);
-  letter-spacing: 0.5px;
-  transition: all 0.15s;
-}
-.settings-btn:hover { color: var(--text); }
-.settings-btn.primary {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
-}
-.settings-btn.primary:hover { box-shadow: 0 0 12px rgba(255,59,48,0.3); }
-.settings-btn.danger { color: var(--accent); }
-
-/* ---- Responsive ---- */
-@media (max-width: 768px) {
-  #toolbar { bottom: 8px; gap: 2px; }
-  .tool-btn { padding: 6px 10px; font-size: 10px; }
-  .hud-stats { gap: 10px; font-size: 10px; }
-  #help-panel { right: 4px; top: 44px; font-size: 10px; padding: 12px; }
-  #settings-panel { width: 95vw; max-height: 90vh; }
-  .settings-body { gap: 10px; padding: 12px 14px; }
-  .setting-label { font-size: 10px; min-width: 75px; }
-}
+:root{--bg:#0a0a0c;--s1:#111116;--s2:#16161d;--bd:#1e1e2a;--tx:#c8c8d4;--td:#6a6a7a;--ac:#ff3b30;--ag:#ff6b4a;--fm:'Courier New',monospace;--fs:system-ui,sans-serif}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a0c;color:var(--tx);font-family:var(--fs);overflow:hidden;height:100vh;width:100vw;user-select:none;-webkit-user-select:none}
+canvas{display:block;position:absolute;inset:0}
+#hud{position:absolute;top:0;left:0;right:0;height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:linear-gradient(180deg,rgba(10,10,12,.95) 0%,transparent);z-index:10;pointer-events:none}
+#hud>*{pointer-events:auto}
+.hb{font-family:var(--fm);font-size:14px;color:var(--td);letter-spacing:2px;text-transform:uppercase}
+.hb span{color:var(--ac);font-weight:700}
+.hs{display:flex;gap:20px;font-family:var(--fm);font-size:12px;color:var(--td)}
+.hs .v{color:var(--ag);font-weight:700}
+#tb{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:4px;background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:4px;z-index:10;backdrop-filter:blur(12px)}
+.tb{font-family:var(--fm);font-size:11px;color:var(--td);background:transparent;border:none;border-radius:7px;padding:8px 14px;cursor:pointer;transition:all .15s;letter-spacing:.5px;white-space:nowrap}
+.tb:hover{background:var(--s2);color:var(--tx)}
+.tb.a{background:var(--ac);color:#fff;box-shadow:0 0 12px rgba(255,59,48,.3)}
+.tb .k{opacity:.4;font-size:10px}
+#hp{position:absolute;top:56px;right:16px;background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:16px 18px;z-index:10;font-family:var(--fm);font-size:11px;color:var(--td);line-height:1.8;backdrop-filter:blur(12px);display:none}
+#hp kbd{display:inline-block;background:var(--s2);border:1px solid var(--bd);border-radius:4px;padding:1px 6px;font-family:var(--fm);font-size:10px;color:var(--tx);margin:0 2px}
+#fl{position:fixed;inset:0;background:radial-gradient(circle,rgba(255,150,0,.2) 0%,transparent 70%);pointer-events:none;z-index:2;opacity:0;transition:opacity .08s}
+#fl.on{opacity:1}
+#so{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+#so.on{display:flex}
+#sp{background:var(--s1);border:1px solid var(--bd);border-radius:14px;padding:0;width:min(520px,92vw);max-height:85vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,.6);display:flex;flex-direction:column}
+.sh{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--bd);position:sticky;top:0;background:var(--s1);border-radius:14px 14px 0 0;z-index:1}
+.sh h3{font-family:var(--fm);font-size:14px;color:var(--tx);text-transform:uppercase;letter-spacing:2px}
+.sh h3 span{color:var(--ac)}
+.sc{background:var(--s2);border:1px solid var(--bd);color:var(--td);font-family:var(--fm);font-size:14px;width:32px;height:32px;border-radius:8px;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center}
+.sc:hover{color:var(--tx);background:var(--bd)}
+.sb{padding:16px 20px 20px;display:flex;flex-direction:column;gap:14px}
+.sr{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.sl{font-family:var(--fm);font-size:11px;color:var(--td);text-transform:uppercase;letter-spacing:1px;white-space:nowrap;min-width:90px}
+.sv{font-family:var(--fm);font-size:11px;color:var(--ag);font-weight:700;min-width:32px;text-align:right}
+input[type=range]{-webkit-appearance:none;flex:1;height:6px;background:var(--s2);border-radius:3px;outline:none;border:1px solid var(--bd)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--ac);cursor:pointer;border:2px solid var(--s1);box-shadow:0 0 8px rgba(255,59,48,.4)}
+.st{width:44px;height:24px;border-radius:12px;background:var(--s2);border:1px solid var(--bd);cursor:pointer;position:relative;transition:background .2s;flex-shrink:0}
+.st.on{background:var(--ac);border-color:var(--ac)}
+.st::after{content:'';position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .2s}
+.st.on::after{transform:translateX(20px)}
+.sn{width:56px;background:var(--s2);border:1px solid var(--bd);border-radius:6px;color:var(--tx);font-family:var(--fm);font-size:12px;padding:4px 6px;text-align:center;outline:none}
+.sn:focus{border-color:var(--ac)}
+.sf{padding:14px 20px;border-top:1px solid var(--bd);display:flex;gap:8px;justify-content:flex-end}
+.sbtn{font-family:var(--fm);font-size:11px;padding:8px 18px;border-radius:7px;cursor:pointer;border:1px solid var(--bd);background:var(--s2);color:var(--td);letter-spacing:.5px;transition:all .15s}
+.sbtn:hover{color:var(--tx)}
+.sbtn.p{background:var(--ac);color:#fff;border-color:var(--ac)}
+.sbtn.d{color:var(--ac)}
+@media(max-width:768px){#tb{bottom:8px;gap:2px}.tb{padding:6px 10px;font-size:10px}.hs{gap:10px;font-size:10px}#hp{right:4px;top:44px;font-size:10px;padding:12px}#sp{width:95vw;max-height:90vh}.sb{gap:10px;padding:12px 14px}.sl{font-size:10px;min-width:75px}}
 </style>
 </head>
 <body>
-<div id="app">
-  <canvas id="canvas"></canvas>
-
-  <div id="hud-top">
-    <div class="hud-brand">TNT<span>SIM</span> <span style="color:#6a6a7a;font-size:10px">v1.0</span></div>
-    <div class="hud-stats">
-      <div>FUSE <span class="val" id="stat-fuse">—</span></div>
-      <div>ACTIVE <span class="val" id="stat-active">0</span></div>
-      <div>DETONATED <span class="val" id="stat-dets">0</span></div>
-      <div>MSPT <span class="val" id="stat-mspt">0.00</span></div>
-      <div>FPS <span class="val" id="stat-fps">60</span></div>
-    </div>
-  </div>
-
-  <div id="help-panel">
-    <kbd>LMB</kbd> Place block &nbsp; <kbd>RMB</kbd> Remove &nbsp; <kbd>MMB</kbd> Prime TNT<br>
-    <kbd>Space</kbd> Run/Pause &nbsp; <kbd>R</kbd> Reset &nbsp; <kbd>.</kbd> Step<br>
-    <kbd>1</kbd>-<kbd>4</kbd> Block type &nbsp; <kbd>[</kbd><kbd>]</kbd> Brush<br>
-    <kbd>WASD</kbd> Pan &nbsp; <kbd>Wheel</kbd> Zoom &nbsp; <kbd>H</kbd> Help<br>
-    <kbd>G</kbd> Grid &nbsp; <kbd>+</kbd><kbd>-</kbd> Speed
-  </div>
-
-  <!-- Settings Modal -->
-  <div id="settings-overlay">
-    <div id="settings-panel">
-      <div class="settings-header">
-        <h3>SET<span>TINGS</span></h3>
-        <button class="settings-close" id="btn-settings-close">✕</button>
-      </div>
-      <div class="settings-body" id="settings-body"></div>
-      <div class="settings-footer">
-        <button class="settings-btn danger" id="btn-reset-all">RESET ALL</button>
-        <button class="settings-btn primary" id="btn-apply">APPLY</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="toolbar">
-    <button class="tool-btn active" data-block="1">STONE <span class="key">1</span></button>
-    <button class="tool-btn" data-block="2">TNT <span class="key">2</span></button>
-    <button class="tool-btn" data-block="3">OBSIDIAN <span class="key">3</span></button>
-    <button class="tool-btn" data-block="4">BEDROCK <span class="key">4</span></button>
-    <button class="tool-btn" id="btn-run">▶ RUN</button>
-    <button class="tool-btn" id="btn-reset">↺ RST</button>
-    <button class="tool-btn" id="btn-settings">⚙ SET</button>
-    <button class="tool-btn" id="btn-help">? HELP</button>
-  </div>
-
-  <div id="flash"></div>
-  <div id="block-indicator"></div>
-</div>
-
+<div id="app"><canvas id="cv"></canvas>
+<div id="hud"><div class="hb">TNT<span>SIM</span> <span style="color:#6a6a7a;font-size:10px">v1.0</span></div>
+<div class="hs"><div>FUSE <span class="v" id="sf">4</span></div><div>ACTIVE <span class="v" id="sa">0</span></div><div>DETS <span class="v" id="sd">0</span></div><div>MSPT <span class="v" id="sm">0.00</span></div><div>FPS <span class="v" id="sps">60</span></div></div></div>
+<div id="hp"><kbd>LMB</kbd> Place &nbsp; <kbd>RMB</kbd> Remove &nbsp; <kbd>MMB</kbd> Prime<br><kbd>Space</kbd> Run &nbsp; <kbd>R</kbd> Reset &nbsp; <kbd>.</kbd> Step<br><kbd>1-4</kbd> Block &nbsp; <kbd>[/]</kbd> Brush<br><kbd>WASD</kbd> Pan &nbsp; <kbd>QE</kbd> Rotate &nbsp; <kbd>Wheel</kbd> Zoom<br><kbd>G</kbd> Grid &nbsp; <kbd>+-</kbd> Speed &nbsp; <kbd>H</kbd> Help</div>
+<div id="so"><div id="sp"><div class="sh"><h3>SET<span>TINGS</span></h3><button class="sc" id="bsc">X</button></div><div class="sb" id="sb"></div><div class="sf"><button class="sbtn d" id="bra">RESET ALL</button><button class="sbtn p" id="bap">APPLY</button></div></div></div>
+<div id="tb"><button class="tb a" data-blk="1">STONE <span class="k">1</span></button><button class="tb" data-blk="2">TNT <span class="k">2</span></button><button class="tb" data-blk="3">OBSIDIAN <span class="k">3</span></button><button class="tb" data-blk="4">BEDROCK <span class="k">4</span></button><button class="tb" id="brun">▶ RUN</button><button class="tb" id="brst">↺ RST</button><button class="tb" id="bset">⚙ SET</button><button class="tb" id="bh">? HELP</button></div>
+<div id="fl"></div></div>
 <script>
-// ===================================================================
-// TNTSim Web — Blast Physics Simulator
-// ===================================================================
+"use strict";
+var cv=document.getElementById("cv"),ctx=cv.getContext("2d"),fl=document.getElementById("fl"),hp=document.getElementById("hp");
+var T={AIR:0,STONE:1,TNT:2,OBSIDIAN:3,BEDROCK:4};
+var COLORS={1:"#5a5a6e",2:"#d42020",3:"#2a1550",4:"#1a1a24"};
+var S={gw:40,gh:30,cs:24,pwr:4,fuse:4,chain:true,brush:1,ivl:0.4,grid:true};
+var DF=JSON.parse(JSON.stringify(S));
+var nrb=false,grid=[],ent=[],par=[];
+var tc=0,tdet=0,bd=0,run=false,tt=0,mspt=0,cb=1,nid=1;
+var keys={};
 
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
-const flash = document.getElementById('flash');
+// Isometric camera
+var cx=0,cy=0,zoom=1,tcx=0,tcy=0;
 
-// ---- State ----
-const BlockType = { AIR: 0, STONE: 1, TNT: 2, OBSIDIAN: 3, BEDROCK: 4 };
+// Isometric projection
+var COSA=Math.cos(Math.PI/6),SINA=Math.sin(Math.PI/6);
+function iso(x,y,z){return{x:(x-y)*COSA*S.cs*zoom+cx,y:(x+y)*SINA*S.cs*zoom-z*S.cs*zoom+cy}}
 
-const settings = {
-  gridW: 60, gridH: 40,
-  cellSize: 20,
-  tntPower: 4.0,
-  tntFuse: 4,
-  chainReaction: true,
-  brushSize: 1,
-  tickInterval: 0.4,
-  showGrid: true,
-};
+function initGrid(){
+  grid=Array.from({length:S.gh},function(){return new Array(S.gw).fill(0)});
+  for(var x=0;x<S.gw;x++)grid[S.gh-1][x]=4;
+}
+function ib(x,y){return x>=0&&x<S.gw&&y>=0&&y<S.gh}
+function pb(x,y,t){if(ib(x,y)&&grid[y][x]===0)grid[y][x]=t}
+function pbr(x,y,t){var b=S.brush;for(var dy=-b+1;dy<b;dy++)for(var dx=-b+1;dx<b;dx++)pb(x+dx,y+dy,t)}
+function rb(x,y){if(ib(x,y)&&grid[y][x]!==0)grid[y][x]=0}
+function prime(x,y){if(ib(x,y)&&grid[y][x]===2){grid[y][x]=0;ent.push({x:x+0.5,y:y+0.5,f:S.fuse,p:S.pwr,a:true,id:nid++})}}
 
-let grid = [];
-let tntEntities = [];
-let particles = [];
-let fallingBlocks = [];
+function calcExp(ox,oy,pw){
+  var d=[],t=[],n=Math.floor(pw*4);
+  for(var i=0;i<n;i++){
+    var a=(i/n)*Math.PI*2+(Math.random()-0.5)*0.3;
+    var dx=Math.cos(a),dz=Math.sin(a),s=pw*(0.7+Math.random()*0.6),wcx=ox,wcz=oy;
+    for(var j=0;j<Math.floor(s*3);j++){
+      wcx+=dx*0.5;wcz+=dz*0.5;var x=Math.floor(wcx),z=Math.floor(wcz);
+      if(!ib(x,z))break;var c=grid[z][x];
+      if(c===0)continue;
+      if(c===2){t.push({gx:x,gy:z});grid[z][x]=0;d.push({gx:x,gy:z});break}
+      if(c===1){if(s>0.5){grid[z][x]=0;d.push({gx:x,gy:z});s-=1.5;if(s<=0)break}else break}
+      if(c===4){if(s>4){grid[z][x]=0;d.push({gx:x,gy:z})}break}
+      if(c===3){if(s>2.5){grid[z][x]=0;d.push({gx:x,gy:z});s-=3}else break}
+    }
+  }
+  return {d:d,t:t};
+}
 
-let tickCount = 0;
-let tntDetonated = 0;
-let blocksDestroyed = 0;
-let running = false;
-let tickTimer = 0;
-let mspt = 0;
-let currentBlock = BlockType.STONE;
-let nextId = 1;
-
-// Camera
-let camX = 0, camY = 0, zoom = 1;
-let targetCamX = 0, targetCamY = 0;
-
-// Input state
-let mouseX = 0, mouseY = 0;
-let mouseDown = false;
-let rightDown = false;
-let lastGridPos = null;
-let showHelp = true;
-
-// ---- Grid Init ----
-function initGrid() {
-  grid = Array.from({length: settings.gridH}, () => new Array(settings.gridW).fill(BlockType.AIR));
-  for (let x = 0; x < settings.gridW; x++) {
-    grid[settings.gridH - 1][x] = BlockType.BEDROCK;
+function spawnParts(wx,wy,pw){
+  for(var i=0;i<Math.floor(pw*30);i++){
+    var a=Math.random()*Math.PI*2,ph=Math.random()*Math.PI*0.4,spd=(2+Math.random()*8)*(pw/3);
+    par.push({x:wx,y:wy,vx:Math.cos(a)*Math.cos(ph)*spd,vy:Math.sin(ph)*spd+1.5,vz:Math.sin(a)*Math.cos(ph)*spd,life:0.3+Math.random()*0.7,ml:1});
   }
 }
 
-function reset() {
-  initGrid();
-  tntEntities = [];
-  particles = [];
-  fallingBlocks = [];
-  tickCount = 0;
-  tntDetonated = 0;
-  blocksDestroyed = 0;
-  running = false;
-  tickTimer = 0;
-  mspt = 0;
-  nextId = 1;
-  const btn = document.getElementById('btn-run');
-  if (btn) btn.textContent = '\u25b6 RUN';
+function tick(){
+  var t0=performance.now();tc++;
+  var nx=[];
+  for(var i=0;i<ent.length;i++){var e=ent[i];if(!e.a)continue;e.f--;if(e.f<=0){e.a=false;nx.push(e)}}
+  ent=ent.filter(function(e){return e.a});
+  var td=0,tq=[];
+  for(var i=0;i<nx.length;i++){var e=nx[i],r=calcExp(Math.floor(e.x),Math.floor(e.y),e.p);tdet++;bd+=r.d.length;td+=r.d.length;spawnParts(e.x,e.y,e.p);for(var j=0;j<r.t.length;j++)tq.push(r.t[j])}
+  if(td>0){fl.classList.add("on");setTimeout(function(){fl.classList.remove("on")},80)}
+  if(S.chain)for(var i=0;i<tq.length;i++){var t=tq[i];ent.push({x:t.gx+0.5,y:t.gy+0.5,f:Math.max(0,S.fuse-1),p:S.pwr,a:true,id:nid++})}
+  mspt=performance.now()-t0;
 }
 
-// ---- Canvas Resize ----
-function resize() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-  if (camX === 0 && camY === 0) {
-    camX = (settings.gridW * settings.cellSize) / 2 - canvas.width / 2;
-    camY = (settings.gridH * settings.cellSize) / 2 - canvas.height / 2;
-    targetCamX = camX;
-    targetCamY = camY;
-  }
+function reset(){
+  ent=[];par=[];tc=0;tdet=0;bd=0;run=false;tt=0;mspt=0;nid=1;
+  initGrid();document.getElementById("brun").textContent="▶ RUN";
 }
-window.addEventListener('resize', resize);
 
-// ---- Coordinate Transforms ----
-function screenToWorld(sx, sy) {
-  return {
-    x: (sx + camX) / zoom,
-    y: (sy + camY) / zoom,
+function upParts(dt){
+  for(var i=par.length-1;i>=0;i--){var p=par[i];p.x+=p.vx*dt;p.y+=p.vy*dt;p.vz-=3*dt;p.life-=dt;if(p.life<=0)par.splice(i,1)}
+}
+
+// Draw isometric cube
+var FACE_TOP=0,FACE_LEFT=1,FACE_RIGHT=2;
+function drawCube(x,y,z,color,size,alpha){
+  size=size||0.85;alpha=alpha||1;
+  var h=size,c=color;
+  var lighten=function(col,amt){
+    var r=parseInt(col.slice(1,3),16),g=parseInt(col.slice(3,5),16),b=parseInt(col.slice(5,7),16);
+    r=Math.min(255,Math.floor(r+amt));g=Math.min(255,Math.floor(g+amt));b=Math.min(255,Math.floor(b+amt));
+    return "rgb("+r+","+g+","+b+")";
   };
-}
-
-function worldToScreen(wx, wy) {
-  return {
-    x: wx * zoom - camX,
-    y: wy * zoom - camY,
+  var darken=function(col,amt){
+    var r=parseInt(col.slice(1,3),16),g=parseInt(col.slice(3,5),16),b=parseInt(col.slice(5,7),16);
+    r=Math.max(0,Math.floor(r-amt));g=Math.max(0,Math.floor(g-amt));b=Math.max(0,Math.floor(b-amt));
+    return "rgb("+r+","+g+","+b+")";
   };
+
+  var cs=S.cs*zoom;
+  var cx0=x+0.5,cy0=y+0.5;
+  // Top face center
+  var top=iso(cx0,cy0,h);
+  // Bottom face center
+  var bot=iso(cx0,cy0,0);
+  // Corners
+  var half=size/2;
+  // Top face: TL, TR, BR, BL
+  var ttl=iso(cx0-half,cy0-half,h),ttr=iso(cx0+half,cy0-half,h);
+  var tbr=iso(cx0+half,cy0+half,h),tbl=iso(cx0-half,cy0+half,h);
+  // Bottom face
+  var btl=iso(cx0-half,cy0-half,0),btr=iso(cx0+half,cy0-half,0);
+  var bbr=iso(cx0+half,cy0+half,0),bbl=iso(cx0-half,cy0+half,0);
+
+  ctx.globalAlpha=alpha;
+  // Left face
+  ctx.fillStyle=lighten(c,20);ctx.beginPath();
+  ctx.moveTo(btl.x,btl.y);ctx.lineTo(bbl.x,bbl.y);ctx.lineTo(tbl.x,tbl.y);ctx.lineTo(ttl.x,ttl.y);ctx.closePath();ctx.fill();
+  ctx.strokeStyle=darken(c,40);ctx.lineWidth=0.5;ctx.stroke();
+  // Right face
+  ctx.fillStyle=c;ctx.beginPath();
+  ctx.moveTo(bbl.x,bbl.y);ctx.lineTo(bbr.x,bbr.y);ctx.lineTo(tbr.x,tbr.y);ctx.lineTo(tbl.x,tbl.y);ctx.closePath();ctx.fill();
+  ctx.strokeStyle=darken(c,30);ctx.stroke();
+  // Top face
+  ctx.fillStyle=lighten(c,45);ctx.beginPath();
+  ctx.moveTo(ttl.x,ttl.y);ctx.lineTo(ttr.x,ttr.y);ctx.lineTo(tbr.x,tbr.y);ctx.lineTo(tbl.x,tbl.y);ctx.closePath();ctx.fill();
+  ctx.strokeStyle=lighten(c,60);ctx.stroke();
+  ctx.globalAlpha=1;
 }
 
-function gridFromScreen(sx, sy) {
-  const w = screenToWorld(sx, sy);
-  const cs = settings.cellSize;
-  return {
-    gx: Math.floor(w.x / cs),
-    gy: Math.floor(w.y / cs),
-  };
+function drawBlock(x,y,t,sz){
+  var c=COLORS[t]||"#333";
+  if(t===2)drawCube(x,y,0,"#d42020",sz||0.75);
+  else if(t===3)drawCube(x,y,0,"#2a1550",sz||0.8);
+  else if(t===4)drawCube(x,y,0,"#1a1a24",sz||0.9);
+  else drawCube(x,y,0,c,sz||0.8);
 }
 
-// ---- Block Placement ----
-function inBounds(gx, gy) {
-  return gx >= 0 && gx < settings.gridW && gy >= 0 && gy < settings.gridH;
+function drawTNTEntity(e){
+  var p=iso(e.x,e.y,0.7),s=S.cs*zoom*0.4;
+  var flicker=0.6+0.4*Math.sin(tc*0.5+e.id);
+  ctx.globalAlpha=flicker;
+  ctx.fillStyle="#fff";ctx.fillRect(p.x-s,p.y-s,s*2,s*2);
+  ctx.strokeStyle="#f44";ctx.lineWidth=2;ctx.strokeRect(p.x-s,p.y-s,s*2,s*2);
+  ctx.fillStyle="#000";ctx.font=(12*zoom)+"px monospace";ctx.textAlign="center";ctx.fillText(e.f,p.x,p.y+4*zoom);
+  ctx.globalAlpha=1;
 }
 
-function placeBlock(gx, gy, type) {
-  if (inBounds(gx, gy) && grid[gy][gx] === BlockType.AIR) {
-    grid[gy][gx] = type;
-  }
+function drawParticle(p){
+  var pos=iso(p.x,p.y+p.vz*0.05,0);
+  var a=p.life/p.ml,r=3*zoom*a;
+  ctx.globalAlpha=a;
+  ctx.fillStyle="hsl("+(15+Math.random()*35)+",100%,55%)";
+  ctx.beginPath();ctx.arc(pos.x,pos.y,r,0,Math.PI*2);ctx.fill();
+  ctx.globalAlpha=1;
 }
 
-function placeBrush(gx, gy, type) {
-  const bs = settings.brushSize;
-  for (let dy = -bs + 1; dy < bs; dy++) {
-    for (let dx = -bs + 1; dx < bs; dx++) {
-      placeBlock(gx + dx, gy + dy, type);
-    }
-  }
+function drawGrid(){
+  if(!S.grid)return;
+  ctx.strokeStyle="rgba(30,30,44,0.3)";ctx.lineWidth=0.5;
+  for(var z=0;z<=S.gh;z++){var a=iso(0,z,0),b=iso(S.gw,z,0);ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke()}
+  for(var x=0;x<=S.gw;x++){var a=iso(x,0,0),b=iso(x,S.gh,0);ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke()}
 }
 
-function primeTNT(gx, gy) {
-  if (inBounds(gx, gy) && grid[gy][gx] === BlockType.TNT) {
-    grid[gy][gx] = BlockType.AIR;
-    tntEntities.push({
-      x: gx + 0.5, y: gy + 0.5,
-      fuse: settings.tntFuse,
-      power: settings.tntPower,
-      alive: true,
-      id: nextId++,
-    });
-  }
-}
+function render(){
+  cv.width=innerWidth;cv.height=innerHeight;
+  ctx.fillStyle="#0a0a0c";ctx.fillRect(0,0,cv.width,cv.height);
 
-// ---- Explosion Calculator ----
-function calculateExplosion(ox, oy, power) {
-  const destroyed = [];
-  const triggered = [];
-  const rays = Math.floor(power * 4);
+  // Center camera on grid
+  var cc=iso(S.gw/2,S.gh/2,0);
+  tcx=-cc.x+cv.width/2;tcy=-cc.y+cv.height/2;
+  cx+=(tcx-cx)*0.15;cy+=(tcy-cy)*0.15;
 
-  for (let i = 0; i < rays; i++) {
-    const angle = (i / rays) * Math.PI * 2 + (Math.random() - 0.5) * 0.3;
-    const dx = Math.cos(angle);
-    const dy = Math.sin(angle);
-    let strength = power * (0.7 + Math.random() * 0.6);
-    let cx = ox, cy = oy;
+  drawGrid();
 
-    for (let step = 0; step < Math.floor(strength * 3); step++) {
-      cx += dx * 0.5;
-      cy += dy * 0.5;
-      const gx = Math.floor(cx);
-      const gy = Math.floor(cy);
-      if (!inBounds(gx, gy)) break;
-
-      const cell = grid[gy][gx];
-      if (cell === BlockType.AIR) continue;
-
-      if (cell === BlockType.TNT) {
-        triggered.push({gx, gy});
-        grid[gy][gx] = BlockType.AIR;
-        destroyed.push({gx, gy});
-        break;
-      } else if (cell === BlockType.STONE) {
-        if (strength > 0.5) {
-          grid[gy][gx] = BlockType.AIR;
-          destroyed.push({gx, gy});
-          strength -= 1.5;
-          if (strength <= 0) break;
-        } else break;
-      } else if (cell === BlockType.BEDROCK) {
-        if (strength > 4.0) {
-          grid[gy][gx] = BlockType.AIR;
-          destroyed.push({gx, gy});
-        }
-        break;
-      } else if (cell === BlockType.OBSIDIAN) {
-        if (strength > 2.5) {
-          grid[gy][gx] = BlockType.AIR;
-          destroyed.push({gx, gy});
-          strength -= 3.0;
-        } else break;
-      }
-    }
-  }
-
-  return { destroyed, triggered, rays };
-}
-
-// ---- Particles ----
-function spawnParticles(wx, wy, power) {
-  const count = Math.floor(power * 18);
-  for (let i = 0; i < count; i++) {
-    const angle = Math.random() * Math.PI * 2;
-    const speed = (50 + Math.random() * 200) * (power / 3);
-    particles.push({
-      x: wx, y: wy,
-      vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed,
-      life: 0.4 + Math.random() * 0.8,
-      maxLife: 1.0,
-      size: 2 + Math.random() * 4,
-      hue: 15 + Math.random() * 35,
-    });
-  }
-}
-
-// ---- Simulation Tick ----
-function tick() {
-  const t0 = performance.now();
-  tickCount++;
-
-  const newExplosions = [];
-  for (const e of tntEntities) {
-    if (!e.alive) continue;
-    e.fuse--;
-    if (e.fuse <= 0) {
-      e.alive = false;
-      newExplosions.push(e);
-    }
-  }
-  tntEntities = tntEntities.filter(e => e.alive);
-
-  let totalDestroyed = 0;
-  const triggeredQueue = [];
-  for (const e of newExplosions) {
-    const result = calculateExplosion(Math.floor(e.x), Math.floor(e.y), e.power);
-    tntDetonated++;
-    blocksDestroyed += result.destroyed.length;
-    totalDestroyed += result.destroyed.length;
-
-    spawnParticles(e.x, e.y, e.power);
-
-    for (const t of result.triggered) {
-      triggeredQueue.push(t);
-    }
-  }
-
-  if (totalDestroyed > 0) {
-    flash.classList.add('fire');
-    setTimeout(() => flash.classList.remove('fire'), 80);
-  }
-
-  if (settings.chainReaction) {
-    for (const {gx, gy} of triggeredQueue) {
-      tntEntities.push({
-        x: gx + 0.5, y: gy + 0.5,
-        fuse: Math.max(0, settings.tntFuse - 1),
-        power: settings.tntPower,
-        alive: true,
-        id: nextId++,
-      });
-    }
-  }
-
-  for (const fb of fallingBlocks) {
-    if (!fb.alive) continue;
-    fb.vy += 500 / 60;
-    fb.y += fb.vy / 60;
-    const gx = Math.floor(fb.x);
-    const gy = Math.floor(fb.y);
-    if (gy >= settings.gridH || (inBounds(gx, gy) && grid[gy][gx] !== BlockType.AIR)) {
-      if (gy - 1 >= 0 && inBounds(gx, gy - 1) && grid[gy - 1][gx] === BlockType.AIR) {
-        grid[gy - 1][gx] = fb.type;
-      }
-      fb.alive = false;
-    }
-  }
-  fallingBlocks = fallingBlocks.filter(fb => fb.alive);
-
-  for (const p of particles) {
-    p.x += p.vx / 60;
-    p.y += p.vy / 60;
-    p.vy += 200 / 60;
-    p.life -= 1/60;
-  }
-  particles = particles.filter(p => p.life > 0);
-
-  mspt = performance.now() - t0;
-}
-
-// ---- Render ----
-function render() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  const cs = settings.cellSize;
-
-  const tl = screenToWorld(0, 0);
-  const br = screenToWorld(canvas.width, canvas.height);
-  const minGx = Math.max(0, Math.floor(tl.x / cs) - 1);
-  const maxGx = Math.min(settings.gridW, Math.floor(br.x / cs) + 2);
-  const minGy = Math.max(0, Math.floor(tl.y / cs) - 1);
-  const maxGy = Math.min(settings.gridH, Math.floor(br.y / cs) + 2);
-
-  // Background
-  ctx.fillStyle = '#0c0c12';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  // Grid lines
-  if (settings.showGrid && zoom > 0.3) {
-    ctx.strokeStyle = 'rgba(30,30,44,0.5)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    for (let gx = minGx; gx <= maxGx; gx++) {
-      const p = worldToScreen(gx * cs, minGy * cs);
-      const e = worldToScreen(gx * cs, maxGy * cs);
-      ctx.moveTo(p.x, p.y);
-      ctx.lineTo(e.x, e.y);
-    }
-    for (let gy = minGy; gy <= maxGy; gy++) {
-      const p = worldToScreen(minGx * cs, gy * cs);
-      const e = worldToScreen(maxGx * cs, gy * cs);
-      ctx.moveTo(p.x, p.y);
-      ctx.lineTo(e.x, e.y);
-    }
-    ctx.stroke();
-  }
-
-  // Blocks
-  for (let gy = minGy; gy < maxGy; gy++) {
-    for (let gx = minGx; gx < maxGx; gx++) {
-      if (!inBounds(gx, gy)) continue;
-      const cell = grid[gy][gx];
-      if (cell === BlockType.AIR) continue;
-
-      const p = worldToScreen(gx * cs, gy * cs);
-      const s = cs * zoom;
-
-      switch (cell) {
-        case BlockType.STONE:
-          ctx.fillStyle = '#5a5a6e';
-          ctx.fillRect(p.x, p.y, s, s);
-          ctx.fillStyle = '#4a4a5c';
-          ctx.fillRect(p.x + 2*zoom, p.y + 2*zoom, s - 4*zoom, s - 4*zoom);
-          break;
-        case BlockType.TNT:
-          ctx.fillStyle = '#d42020';
-          ctx.fillRect(p.x, p.y, s, s);
-          ctx.fillStyle = '#ff3333';
-          ctx.fillRect(p.x + 4*zoom, p.y + 4*zoom, s - 8*zoom, s - 8*zoom);
-          ctx.fillStyle = '#fff';
-          ctx.fillRect(p.x + 2*zoom, p.y + s/2 - 1*zoom, s - 4*zoom, 2*zoom);
-          ctx.fillRect(p.x + s/2 - 1*zoom, p.y + 2*zoom, 2*zoom, s - 4*zoom);
-          break;
-        case BlockType.OBSIDIAN:
-          ctx.fillStyle = '#2a1550';
-          ctx.fillRect(p.x, p.y, s, s);
-          ctx.fillStyle = '#1d0e38';
-          ctx.fillRect(p.x + 2*zoom, p.y + 2*zoom, s - 4*zoom, s - 4*zoom);
-          break;
-        case BlockType.BEDROCK:
-          ctx.fillStyle = '#1a1a24';
-          ctx.fillRect(p.x, p.y, s, s);
-          ctx.fillStyle = '#12121a';
-          for (let i = 0; i < 3; i++) {
-            ctx.fillRect(p.x + i * s/3, p.y, 1*zoom, s);
-            ctx.fillRect(p.x, p.y + i * s/3, s, 1*zoom);
-          }
-          break;
-      }
-    }
+  // Draw blocks (back to front for proper z-ordering)
+  for(var y=0;y<S.gh;y++)for(var x=0;x<S.gw;x++){
+    if(grid[y][x]!==0)drawBlock(x,y,grid[y][x]);
   }
 
   // TNT entities
-  for (const e of tntEntities) {
-    if (!e.alive) continue;
-    const p = worldToScreen(e.x * cs - cs/2, e.y * cs - cs/2);
-    const s = cs * zoom;
-    const fl = 0.5 + 0.5 * Math.sin(tickCount * 0.3 + e.id);
-    const alpha = 0.4 + 0.4 * fl;
-
-    ctx.fillStyle = `rgba(255,80,40,${alpha * 0.5})`;
-    ctx.beginPath();
-    ctx.roundRect(p.x - s*0.3, p.y - s*0.3, s*1.6, s*1.6, 4);
-    ctx.fill();
-
-    ctx.fillStyle = `rgba(255,255,255,${alpha})`;
-    ctx.fillRect(p.x, p.y, s, s);
-
-    ctx.fillStyle = '#000';
-    ctx.font = `${Math.max(10, 14*zoom)}px "Share Tech Mono", monospace`;
-    ctx.textAlign = 'center';
-    ctx.fillText(e.fuse, p.x + s/2, p.y + s/2 + 4*zoom);
-  }
+  for(var i=0;i<ent.length;i++){if(ent[i].a)drawTNTEntity(ent[i])}
 
   // Particles
-  for (const p of particles) {
-    const pos = worldToScreen(p.x * cs, p.y * cs);
-    const alpha = p.life / p.maxLife;
-    const r = p.size * zoom;
-    ctx.fillStyle = `hsla(${p.hue}, 100%, 55%, ${alpha})`;
-    ctx.shadowColor = `hsla(${p.hue}, 100%, 55%, ${alpha * 0.6})`;
-    ctx.shadowBlur = r * 2;
-    ctx.beginPath();
-    ctx.arc(pos.x, pos.y, r, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.shadowBlur = 0;
+  for(var i=0;i<par.length;i++)drawParticle(par[i]);
 
   // Brush preview
-  if (!rightDown && !mouseDown) {
-    const {gx, gy} = gridFromScreen(mouseX, mouseY);
-    if (inBounds(gx, gy)) {
-      const bs = settings.brushSize;
-      for (let dy = -bs + 1; dy < bs; dy++) {
-        for (let dx = -bs + 1; dx < bs; dx++) {
-          const p = worldToScreen((gx + dx) * cs, (gy + dy) * cs);
-          ctx.strokeStyle = 'rgba(255,255,255,0.25)';
-          ctx.lineWidth = 1;
-          ctx.strokeRect(p.x, p.y, cs * zoom, cs * zoom);
-        }
-      }
+  if(!rmbDown&&!lmbDown&&mouseOnGrid){
+    var bs=S.brush;
+    for(var dy=-bs+1;dy<bs;dy++)for(var dx=-bs+1;dx<bs;dx++){
+      var px=gx+dx,pz=gy+dy;if(!ib(px,pz))continue;
+      var p=iso(px+0.5,pz+0.5,0.01);
+      ctx.fillStyle="rgba(255,255,255,0.15)";
+      var s=S.cs*zoom*0.4;ctx.fillRect(p.x-s,p.y-s,s*2,s*2);
     }
   }
 
-  // Click indicator
-  if (mouseDown || rightDown) {
-    const {gx, gy} = gridFromScreen(mouseX, mouseY);
-    if (inBounds(gx, gy)) {
-      const p = worldToScreen(gx * cs, gy * cs);
-      ctx.strokeStyle = mouseDown ? 'rgba(255,100,50,0.6)' : 'rgba(255,50,50,0.6)';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(p.x, p.y, cs * zoom, cs * zoom);
-    }
-  }
-
-  // Bottom gradient
-  const grad = ctx.createLinearGradient(0, canvas.height - 80, 0, canvas.height);
-  grad.addColorStop(0, 'rgba(10,10,12,0)');
-  grad.addColorStop(1, 'rgba(10,10,12,0.7)');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, canvas.height - 80, canvas.width, 80);
+  // HUD update
+  var ac=0;for(var i=0;i<ent.length;i++)if(ent[i].a)ac++;
+  document.getElementById("sa").textContent=ac;
+  document.getElementById("sd").textContent=tdet;
+  document.getElementById("sm").textContent=mspt.toFixed(2);
+  document.getElementById("sf").textContent=S.fuse;
 }
 
-// ---- Main Loop ----
-let lastTime = 0;
-let fpsCounter = 0;
-let fpsTime = 0;
-let currentFPS = 60;
+// Input
+var mx=0,my=0,gx=-1,gy=-1,mouseOnGrid=false;
+var lmbDown=false,rmbDown=false,mmbDown=false,lastGP=null;
 
-function loop(timestamp) {
-  const dt = Math.min((timestamp - lastTime) / 1000, 0.1);
-  lastTime = timestamp;
+function screenToGrid(sx,sy){
+  // Inverse isometric - rough approximation
+  var wx=(sx-cx)/(COSA*S.cs*zoom);
+  var wy=(sy-cy)/(SINA*S.cs*zoom);
+  var gx0=Math.floor((wx+wy)/2);
+  var gy0=Math.floor((wy-wx)/2*-1);
+  return{gx:gx0,gy:gy0};
+}
 
-  fpsCounter++;
-  fpsTime += dt;
-  if (fpsTime >= 0.5) {
-    currentFPS = Math.round(fpsCounter / fpsTime);
-    fpsCounter = 0;
-    fpsTime = 0;
+cv.addEventListener("mousemove",function(e){
+  mx=e.clientX;my=e.clientY;
+  var g=screenToGrid(mx-cv.offsetLeft,my-cv.offsetTop);
+  gx=g.gx;gy=g.gy;mouseOnGrid=ib(gx,gy);
+  if(lmbDown&&mouseOnGrid){var k=gx+","+gy;if(k!==lastGP){lastGP=k;pbr(gx,gy,cb)}}
+  else if(rmbDown&&mouseOnGrid){var k=gx+","+gy;if(k!==lastGP){lastGP=k;rb(gx,gy)}}
+});
+cv.addEventListener("mousedown",function(e){
+  if(e.button===0){lmbDown=true;if(mouseOnGrid){lastGP=gx+","+gy;pbr(gx,gy,cb)}}
+  else if(e.button===2){rmbDown=true;if(mouseOnGrid){lastGP=gx+","+gy;rb(gx,gy)}}
+  else if(e.button===1){e.preventDefault();if(mouseOnGrid)prime(gx,gy)}
+});
+cv.addEventListener("mouseup",function(e){if(e.button===0)lmbDown=false;if(e.button===2)rmbDown=false;lastGP=null});
+cv.addEventListener("wheel",function(e){e.preventDefault();zoom*=(1-e.deltaY*0.001);zoom=Math.max(0.3,Math.min(4,zoom))},{passive:false});
+cv.addEventListener("contextmenu",function(e){e.preventDefault()});
+
+window.addEventListener("keydown",function(e){
+  keys[e.key.toLowerCase()]=true;
+  if(document.getElementById("so").classList.contains("on")){if(e.key==="Escape")cs();return}
+  switch(e.key.toLowerCase()){
+    case " ":e.preventDefault();run=!run;document.getElementById("brun").textContent=run?"⏸ PAUSE":"▶ RUN";break;
+    case "r":reset();break;
+    case "g":S.grid=!S.grid;break;
+    case "h":hp.style.display=hp.style.display==="none"?"block":"none";break;
+    case "1":cb=1;utb();break;case "2":cb=2;utb();break;case "3":cb=3;utb();break;case "4":cb=4;utb();break;
+    case "[":S.brush=Math.max(1,S.brush-1);break;
+    case "]":S.brush=Math.min(5,S.brush+1);break;
+    case "=":case "+":S.ivl=Math.max(0.03,S.ivl-0.1);break;
+    case "-":S.ivl=Math.min(2,S.ivl+0.1);break;
+    case ".":if(!run)tick();break;
   }
+});
+window.addEventListener("keyup",function(e){keys[e.key.toLowerCase()]=false});
+function utb(){var bs=document.querySelectorAll(".tb[data-blk]");for(var i=0;i<bs.length;i++)bs[i].classList.toggle("a",parseInt(bs[i].dataset.blk)===cb)}
 
-  if (running) {
-    tickTimer += dt;
-    while (tickTimer >= settings.tickInterval) {
-      tickTimer -= settings.tickInterval;
-      tick();
-    }
-  } else {
-    for (const p of particles) {
-      p.x += p.vx * dt;
-      p.y += p.vy * dt;
-      p.vy += 200 * dt;
-      p.life -= dt;
-    }
-    particles = particles.filter(p => p.life > 0);
+// Toolbar
+document.querySelectorAll(".tb[data-blk]").forEach(function(b){b.addEventListener("click",function(){document.querySelectorAll(".tb[data-blk]").forEach(function(bb){bb.classList.remove("a")});b.classList.add("a");cb=parseInt(b.dataset.blk)})});
+document.getElementById("brun").addEventListener("click",function(){run=!run;document.getElementById("brun").textContent=run?"⏸ PAUSE":"▶ RUN"});
+document.getElementById("brst").addEventListener("click",reset);
+document.getElementById("bh").addEventListener("click",function(){hp.style.display=hp.style.display==="none"?"block":"none"});
+
+// Settings
+var SC=[{k:"pwr",l:"TNT Power",t:"s",n:1,x:10,s:0.5},{k:"fuse",l:"Fuse Time",t:"s",n:1,x:10,s:1,u:" ticks"},{k:"ivl",l:"Tick Speed",t:"s",n:0.03,x:2,s:0.01,u:"s",f:function(v){return v.toFixed(2)}},{k:"chain",l:"Chain Reaction",t:"t"},{k:"brush",l:"Brush Size",t:"s",n:1,x:5,s:1},{k:"grid",l:"Show Grid",t:"t"},{k:"gw",l:"Grid Width",t:"n",n:10,x:100,rb:true},{k:"gh",l:"Grid Height",t:"n",n:10,x:80,rb:true}];
+function bsu(){
+  var b=document.getElementById("sb"),h="";
+  for(var i=0;i<SC.length;i++){
+    var c=SC[i],v=S[c.k];
+    if(c.t==="s"){h+='<div class="sr"><span class="sl">'+c.l+'</span><span class="sv" id="sv-'+c.k+'">'+(c.f?c.f(v):v)+(c.u||"")+'</span></div><input type="range" id="si-'+c.k+'" min="'+c.n+'" max="'+c.x+'" step="'+c.s+'" value="'+v+'">'}
+    else if(c.t==="t"){h+='<div class="sr"><span class="sl">'+c.l+'</span><button class="st'+(v?" on":"")+'" id="si-'+c.k+'"></button></div>'}
+    else{h+='<div class="sr"><span class="sl">'+c.l+'</span><input type="number" class="sn" id="si-'+c.k+'" min="'+c.n+'" max="'+c.x+'" value="'+v+'"></div>'}
   }
+  b.innerHTML=h;
+  for(var i=0;i<SC.length;i++){
+    var c=SC[i];
+    if(c.t==="s"){(function(c){var inp=document.getElementById("si-"+c.k),dsp=document.getElementById("sv-"+c.k);if(!inp||!dsp)return;inp.addEventListener("input",function(){var v=parseFloat(inp.value);dsp.textContent=(c.f?c.f(v):v)+(c.u||"");S[c.k]=v;if(c.rb)nrb=true})})(c)}
+    else if(c.t==="t"){(function(c){var btn=document.getElementById("si-"+c.k);if(!btn)return;btn.addEventListener("click",function(){S[c.k]=!S[c.k];btn.classList.toggle("on",S[c.k])})})(c)}
+    else{(function(c){var inp=document.getElementById("si-"+c.k);if(!inp)return;inp.addEventListener("input",function(){var v=parseInt(inp.value);if(!isNaN(v)&&v>=c.n&&v<=c.x){S[c.k]=v;if(c.rb)nrb=true}})})(c)}
+  }
+}
+function os(){bsu();document.getElementById("so").classList.add("on")}
+function cs(){document.getElementById("so").classList.remove("on")}
+function as(){cs();if(nrb){initGrid();nrb=false}}
+document.getElementById("bset").addEventListener("click",os);
+document.getElementById("bsc").addEventListener("click",cs);
+document.getElementById("bap").addEventListener("click",as);
+document.getElementById("bra").addEventListener("click",function(){Object.assign(S,JSON.parse(JSON.stringify(DF)));bsu()});
+document.getElementById("so").addEventListener("click",function(e){if(e.target===e.currentTarget)cs()});
 
-  camX += (targetCamX - camX) * 0.15;
-  camY += (targetCamY - camY) * 0.15;
+// Main loop
+var lastTime=0,fc=0,ft=0,cfps=60;
+function anim(timestamp){
+  requestAnimationFrame(anim);
+  var dt=Math.min((timestamp-lastTime)/1000,0.1);lastTime=timestamp;
+  fc++;ft+=dt;if(ft>=0.5){cfps=Math.round(fc/ft);fc=0;ft=0}
+  document.getElementById("sps").textContent=cfps;
 
+  // WASD panning
+  var spd=400*dt;var f=COSA>0?1:1,r=COSA>0?1:1;
+  if(keys["w"]||keys["arrowup"]){cy+=spd}
+  if(keys["s"]||keys["arrowdown"]){cy-=spd}
+  if(keys["a"]||keys["arrowleft"]){cx+=spd}
+  if(keys["d"]||keys["arrowright"]){cx-=spd}
+
+  if(run){tt+=dt;while(tt>=S.ivl){tt-=S.ivl;tick()}}else upParts(dt);
   render();
-
-  document.getElementById('stat-active').textContent = tntEntities.filter(e => e.alive).length;
-  document.getElementById('stat-dets').textContent = tntDetonated;
-  document.getElementById('stat-mspt').textContent = mspt.toFixed(2);
-  document.getElementById('stat-fps').textContent = currentFPS;
-  document.getElementById('stat-fuse').textContent = settings.tntFuse;
-
-  requestAnimationFrame(loop);
 }
-
-// ---- Toolbar ----
-document.querySelectorAll('.tool-btn[data-block]').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.tool-btn[data-block]').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    currentBlock = parseInt(btn.dataset.block);
-  });
-});
-
-document.getElementById('btn-run').addEventListener('click', () => {
-  running = !running;
-  document.getElementById('btn-run').textContent = running ? '\u23f8 PAUSE' : '\u25b6 RUN';
-});
-document.getElementById('btn-reset').addEventListener('click', reset);
-document.getElementById('btn-help').addEventListener('click', () => {
-  showHelp = !showHelp;
-  document.getElementById('help-panel').classList.toggle('visible', showHelp);
-});
-
-// ---- Settings System ----
-const SETTINGS_DEFAULTS = structuredClone(settings);
-
-const SETTINGS_CONFIG = [
-  { key: 'tntPower', label: 'TNT Power', type: 'slider', min: 1, max: 10, step: 0.5, unit: '' },
-  { key: 'tntFuse', label: 'Fuse Time', type: 'slider', min: 1, max: 10, step: 1, unit: ' ticks' },
-  { key: 'tickInterval', label: 'Tick Speed', type: 'slider', min: 0.03, max: 2.0, step: 0.01, unit: 's', format: v => v.toFixed(2) },
-  { key: 'chainReaction', label: 'Chain Reaction', type: 'toggle' },
-  { key: 'brushSize', label: 'Brush Size', type: 'slider', min: 1, max: 5, step: 1, unit: '' },
-  { key: 'cellSize', label: 'Cell Size', type: 'slider', min: 8, max: 40, step: 2, unit: 'px', rebuild: true },
-  { key: 'gridW', label: 'Grid Width', type: 'number', min: 10, max: 200, rebuild: true },
-  { key: 'gridH', label: 'Grid Height', type: 'number', min: 10, max: 120, rebuild: true },
-  { key: 'showGrid', label: 'Show Grid', type: 'toggle' },
-];
-
-let settingsOpen = false;
-let needsRebuild = false;
-
-function buildSettingsUI() {
-  const body = document.getElementById('settings-body');
-  body.innerHTML = '';
-
-  let html = '';
-  for (const cfg of SETTINGS_CONFIG) {
-    const val = settings[cfg.key];
-    if (cfg.type === 'slider') {
-      const display = cfg.format ? cfg.format(val) : val;
-      html += `<div class="setting-group">
-        <div class="setting-row">
-          <span class="setting-label">${cfg.label}</span>
-          <span class="setting-value" id="sv-${cfg.key}">${display}${cfg.unit}</span>
-        </div>
-        <input type="range" id="si-${cfg.key}" min="${cfg.min}" max="${cfg.max}" step="${cfg.step}" value="${val}">
-      </div>`;
-    } else if (cfg.type === 'toggle') {
-      html += `<div class="setting-group">
-        <div class="setting-row">
-          <span class="setting-label">${cfg.label}</span>
-          <button class="setting-toggle${val ? ' on' : ''}" id="si-${cfg.key}"></button>
-        </div>
-      </div>`;
-    } else if (cfg.type === 'number') {
-      html += `<div class="setting-group">
-        <div class="setting-row">
-          <span class="setting-label">${cfg.label}</span>
-          <input type="number" class="setting-num" id="si-${cfg.key}" min="${cfg.min}" max="${cfg.max}" value="${val}">
-        </div>
-      </div>`;
-    }
-  }
-  body.innerHTML = html;
-
-  // Wire sliders
-  for (const cfg of SETTINGS_CONFIG) {
-    if (cfg.type !== 'slider') continue;
-    const input = document.getElementById(`si-${cfg.key}`);
-    const display = document.getElementById(`sv-${cfg.key}`);
-    if (!input || !display) continue;
-    input.addEventListener('input', () => {
-      const v = parseFloat(input.value);
-      const d = cfg.format ? cfg.format(v) : v;
-      display.textContent = `${d}${cfg.unit}`;
-      settings[cfg.key] = v;
-      if (cfg.rebuild) needsRebuild = true;
-    });
-  }
-
-  // Wire toggles
-  for (const cfg of SETTINGS_CONFIG) {
-    if (cfg.type !== 'toggle') continue;
-    const btn = document.getElementById(`si-${cfg.key}`);
-    if (!btn) continue;
-    btn.addEventListener('click', () => {
-      settings[cfg.key] = !settings[cfg.key];
-      btn.classList.toggle('on', settings[cfg.key]);
-    });
-  }
-
-  // Wire number inputs
-  for (const cfg of SETTINGS_CONFIG) {
-    if (cfg.type !== 'number') continue;
-    const input = document.getElementById(`si-${cfg.key}`);
-    if (!input) continue;
-    input.addEventListener('input', () => {
-      const v = parseInt(input.value);
-      if (!isNaN(v) && v >= cfg.min && v <= cfg.max) {
-        settings[cfg.key] = v;
-        if (cfg.rebuild) needsRebuild = true;
-      }
-    });
-  }
-}
-
-function openSettings() {
-  buildSettingsUI();
-  document.getElementById('settings-overlay').classList.add('open');
-  settingsOpen = true;
-}
-
-function closeSettings() {
-  document.getElementById('settings-overlay').classList.remove('open');
-  settingsOpen = false;
-}
-
-function applySettings() {
-  closeSettings();
-  if (needsRebuild) {
-    initGrid();
-    needsRebuild = false;
-    resetStats();
-  }
-}
-
-function resetSettings() {
-  Object.assign(settings, structuredClone(SETTINGS_DEFAULTS));
-  buildSettingsUI();
-}
-
-function resetStats() {
-  tntEntities = [];
-  particles = [];
-  fallingBlocks = [];
-  tickCount = 0;
-  tntDetonated = 0;
-  blocksDestroyed = 0;
-  nextId = 1;
-}
-
-// Settings buttons
-document.getElementById('btn-settings').addEventListener('click', openSettings);
-document.getElementById('btn-settings-close').addEventListener('click', closeSettings);
-document.getElementById('btn-apply').addEventListener('click', applySettings);
-document.getElementById('btn-reset-all').addEventListener('click', resetSettings);
-
-// Close on overlay click
-document.getElementById('settings-overlay').addEventListener('click', e => {
-  if (e.target === e.currentTarget) closeSettings();
-});
-
-// ---- Keyboard ----
-window.addEventListener('keydown', e => {
-  // Settings panel global keys
-  if (settingsOpen) {
-    if (e.key === 'Escape') { closeSettings(); return; }
-    return; // Block all other keys when settings is open
-  }
-
-  switch (e.key.toLowerCase()) {
-    case ' ': e.preventDefault(); running = !running;
-      document.getElementById('btn-run').textContent = running ? '\u23f8 PAUSE' : '\u25b6 RUN'; break;
-    case 'r': reset(); break;
-    case 'g': settings.showGrid = !settings.showGrid; break;
-    case 'h': showHelp = !showHelp;
-      document.getElementById('help-panel').classList.toggle('visible', showHelp); break;
-    case '1': currentBlock = BlockType.STONE; updateToolbar(); break;
-    case '2': currentBlock = BlockType.TNT; updateToolbar(); break;
-    case '3': currentBlock = BlockType.OBSIDIAN; updateToolbar(); break;
-    case '4': currentBlock = BlockType.BEDROCK; updateToolbar(); break;
-    case '[': settings.brushSize = Math.max(1, settings.brushSize - 1); break;
-    case ']': settings.brushSize = Math.min(5, settings.brushSize + 1); break;
-    case '=': case '+': settings.tickInterval = Math.max(0.03, settings.tickInterval - 0.1); break;
-    case '-': settings.tickInterval = Math.min(2.0, settings.tickInterval + 0.1); break;
-    case '.': if (!running) tick(); break;
-  }
-});
-
-function updateToolbar() {
-  document.querySelectorAll('.tool-btn[data-block]').forEach(b => {
-    b.classList.toggle('active', parseInt(b.dataset.block) === currentBlock);
-  });
-}
-
-// ---- Mouse ----
-canvas.addEventListener('mousemove', e => {
-  mouseX = e.clientX;
-  mouseY = e.clientY;
-
-  if (mouseDown) {
-    const {gx, gy} = gridFromScreen(mouseX, mouseY);
-    if (inBounds(gx, gy)) {
-      const key = `${gx},${gy}`;
-      if (key !== lastGridPos) {
-        lastGridPos = key;
-        placeBrush(gx, gy, currentBlock);
-      }
-    }
-  } else if (rightDown) {
-    const {gx, gy} = gridFromScreen(mouseX, mouseY);
-    if (inBounds(gx, gy)) {
-      const key = `${gx},${gy}`;
-      if (key !== lastGridPos) {
-        lastGridPos = key;
-        grid[gy][gx] = BlockType.AIR;
-      }
-    }
-  }
-});
-
-canvas.addEventListener('mousedown', e => {
-  if (e.button === 0) {
-    mouseDown = true;
-    const {gx, gy} = gridFromScreen(e.clientX, e.clientY);
-    if (inBounds(gx, gy)) {
-      lastGridPos = `${gx},${gy}`;
-      placeBrush(gx, gy, currentBlock);
-    }
-  } else if (e.button === 2) {
-    rightDown = true;
-    const {gx, gy} = gridFromScreen(e.clientX, e.clientY);
-    if (inBounds(gx, gy)) {
-      lastGridPos = `${gx},${gy}`;
-      grid[gy][gx] = BlockType.AIR;
-    }
-  } else if (e.button === 1) {
-    e.preventDefault();
-    const {gx, gy} = gridFromScreen(e.clientX, e.clientY);
-    primeTNT(gx, gy);
-  }
-});
-
-canvas.addEventListener('mouseup', e => {
-  if (e.button === 0) mouseDown = false;
-  if (e.button === 2) rightDown = false;
-  lastGridPos = null;
-});
-
-canvas.addEventListener('wheel', e => {
-  e.preventDefault();
-  const oldW = screenToWorld(e.clientX, e.clientY);
-  zoom *= (1 - e.deltaY * 0.001);
-  zoom = Math.max(0.2, Math.min(6, zoom));
-  const newW = screenToWorld(e.clientX, e.clientY);
-  targetCamX += (oldW.x - newW.x) * zoom;
-  targetCamY += (oldW.y - newW.y) * zoom;
-  camX = targetCamX;
-  camY = targetCamY;
-}, {passive: false});
-
-canvas.addEventListener('contextmenu', e => e.preventDefault());
-
-// ---- Touch ----
-canvas.addEventListener('touchstart', e => {
-  e.preventDefault();
-  if (e.touches.length === 1) {
-    const t = e.touches[0];
-    mouseX = t.clientX;
-    mouseY = t.clientY;
-    mouseDown = true;
-    const {gx, gy} = gridFromScreen(t.clientX, t.clientY);
-    if (inBounds(gx, gy)) {
-      lastGridPos = `${gx},${gy}`;
-      placeBrush(gx, gy, currentBlock);
-    }
-  }
-}, {passive: false});
-
-canvas.addEventListener('touchmove', e => {
-  e.preventDefault();
-  if (e.touches.length === 1 && mouseDown) {
-    const t = e.touches[0];
-    mouseX = t.clientX;
-    mouseY = t.clientY;
-    const {gx, gy} = gridFromScreen(t.clientX, t.clientY);
-    if (inBounds(gx, gy)) {
-      const key = `${gx},${gy}`;
-      if (key !== lastGridPos) {
-        lastGridPos = key;
-        placeBrush(gx, gy, currentBlock);
-      }
-    }
-  }
-}, {passive: false});
-
-canvas.addEventListener('touchend', () => {
-  mouseDown = false;
-  lastGridPos = null;
-});
-
-// ---- Init ----
-function init() {
-  resize();
-  initGrid();
-
-  // Demo: partial wall and TNT placements
-  for (let x = 20; x <= 40; x++) {
-    for (let y = 15; y <= 25; y++) {
-      if (Math.random() < 0.6) placeBlock(x, y, BlockType.STONE);
-    }
-  }
-  placeBlock(28, 14, BlockType.TNT);
-  placeBlock(30, 14, BlockType.TNT);
-  placeBlock(32, 14, BlockType.TNT);
-
-  document.getElementById('help-panel').classList.add('visible');
-  requestAnimationFrame(loop);
-}
-
-init();
-</script>
-</body>
-</html>
+initGrid();
+for(var x=14;x<=26;x++)for(var y=12;y<=20;y++){if(Math.random()<0.5)pb(x,y,1)}
+pb(18,10,2);pb(20,10,2);pb(22,10,2);
+prime(18,10);prime(20,10);prime(22,10);
+hp.style.display="block";
+anim(0);
+</script></body></html>
