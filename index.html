@@ -203,12 +203,218 @@ canvas {
 
 #flash.fire { opacity: 1; }
 
+/* ---- Settings Panel ---- */
+#settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 100;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+#settings-overlay.open { display: flex; }
+
+#settings-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 0;
+  width: min(520px, 92vw);
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 1;
+  border-radius: 14px 14px 0 0;
+}
+.settings-header h3 {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+.settings-header h3 span { color: var(--accent); }
+.settings-close {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.settings-close:hover { color: var(--text); background: var(--border); }
+
+.settings-body {
+  padding: 16px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.setting-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+.setting-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  white-space: nowrap;
+  min-width: 90px;
+}
+.setting-value {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent-glow);
+  font-weight: 700;
+  min-width: 32px;
+  text-align: right;
+}
+
+/* Sliders */
+input[type="range"] {
+  -webkit-appearance: none;
+  flex: 1;
+  height: 6px;
+  background: var(--surface2);
+  border-radius: 3px;
+  outline: none;
+  border: 1px solid var(--border);
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 2px solid var(--surface);
+  box-shadow: 0 0 8px rgba(255,59,48,0.4);
+}
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+}
+
+/* Toggle */
+.setting-toggle {
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  position: relative;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+.setting-toggle.on {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.setting-toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s;
+}
+.setting-toggle.on::after { transform: translateX(20px); }
+
+/* Number inputs */
+input[type="number"].setting-num {
+  width: 56px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 4px 6px;
+  text-align: center;
+  outline: none;
+}
+input[type="number"].setting-num:focus {
+  border-color: var(--accent);
+}
+
+.settings-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 4px 0;
+}
+
+.settings-footer {
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.settings-btn {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 8px 18px;
+  border-radius: 7px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text-dim);
+  letter-spacing: 0.5px;
+  transition: all 0.15s;
+}
+.settings-btn:hover { color: var(--text); }
+.settings-btn.primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.settings-btn.primary:hover { box-shadow: 0 0 12px rgba(255,59,48,0.3); }
+.settings-btn.danger { color: var(--accent); }
+
 /* ---- Responsive ---- */
 @media (max-width: 768px) {
   #toolbar { bottom: 8px; gap: 2px; }
   .tool-btn { padding: 6px 10px; font-size: 10px; }
   .hud-stats { gap: 10px; font-size: 10px; }
   #help-panel { right: 4px; top: 44px; font-size: 10px; padding: 12px; }
+  #settings-panel { width: 95vw; max-height: 90vh; }
+  .settings-body { gap: 10px; padding: 12px 14px; }
+  .setting-label { font-size: 10px; min-width: 75px; }
 }
 </style>
 </head>
@@ -235,6 +441,21 @@ canvas {
     <kbd>G</kbd> Grid &nbsp; <kbd>+</kbd><kbd>-</kbd> Speed
   </div>
 
+  <!-- Settings Modal -->
+  <div id="settings-overlay">
+    <div id="settings-panel">
+      <div class="settings-header">
+        <h3>SET<span>TINGS</span></h3>
+        <button class="settings-close" id="btn-settings-close">✕</button>
+      </div>
+      <div class="settings-body" id="settings-body"></div>
+      <div class="settings-footer">
+        <button class="settings-btn danger" id="btn-reset-all">RESET ALL</button>
+        <button class="settings-btn primary" id="btn-apply">APPLY</button>
+      </div>
+    </div>
+  </div>
+
   <div id="toolbar">
     <button class="tool-btn active" data-block="1">STONE <span class="key">1</span></button>
     <button class="tool-btn" data-block="2">TNT <span class="key">2</span></button>
@@ -242,6 +463,7 @@ canvas {
     <button class="tool-btn" data-block="4">BEDROCK <span class="key">4</span></button>
     <button class="tool-btn" id="btn-run">▶ RUN</button>
     <button class="tool-btn" id="btn-reset">↺ RST</button>
+    <button class="tool-btn" id="btn-settings">⚙ SET</button>
     <button class="tool-btn" id="btn-help">? HELP</button>
   </div>
 
@@ -757,8 +979,153 @@ document.getElementById('btn-help').addEventListener('click', () => {
   document.getElementById('help-panel').classList.toggle('visible', showHelp);
 });
 
+// ---- Settings System ----
+const SETTINGS_DEFAULTS = structuredClone(settings);
+
+const SETTINGS_CONFIG = [
+  { key: 'tntPower', label: 'TNT Power', type: 'slider', min: 1, max: 10, step: 0.5, unit: '' },
+  { key: 'tntFuse', label: 'Fuse Time', type: 'slider', min: 1, max: 10, step: 1, unit: ' ticks' },
+  { key: 'tickInterval', label: 'Tick Speed', type: 'slider', min: 0.03, max: 2.0, step: 0.01, unit: 's', format: v => v.toFixed(2) },
+  { key: 'chainReaction', label: 'Chain Reaction', type: 'toggle' },
+  { key: 'brushSize', label: 'Brush Size', type: 'slider', min: 1, max: 5, step: 1, unit: '' },
+  { key: 'cellSize', label: 'Cell Size', type: 'slider', min: 8, max: 40, step: 2, unit: 'px', rebuild: true },
+  { key: 'gridW', label: 'Grid Width', type: 'number', min: 10, max: 200, rebuild: true },
+  { key: 'gridH', label: 'Grid Height', type: 'number', min: 10, max: 120, rebuild: true },
+  { key: 'showGrid', label: 'Show Grid', type: 'toggle' },
+];
+
+let settingsOpen = false;
+let needsRebuild = false;
+
+function buildSettingsUI() {
+  const body = document.getElementById('settings-body');
+  body.innerHTML = '';
+
+  let html = '';
+  for (const cfg of SETTINGS_CONFIG) {
+    const val = settings[cfg.key];
+    if (cfg.type === 'slider') {
+      const display = cfg.format ? cfg.format(val) : val;
+      html += `<div class="setting-group">
+        <div class="setting-row">
+          <span class="setting-label">${cfg.label}</span>
+          <span class="setting-value" id="sv-${cfg.key}">${display}${cfg.unit}</span>
+        </div>
+        <input type="range" id="si-${cfg.key}" min="${cfg.min}" max="${cfg.max}" step="${cfg.step}" value="${val}">
+      </div>`;
+    } else if (cfg.type === 'toggle') {
+      html += `<div class="setting-group">
+        <div class="setting-row">
+          <span class="setting-label">${cfg.label}</span>
+          <button class="setting-toggle${val ? ' on' : ''}" id="si-${cfg.key}"></button>
+        </div>
+      </div>`;
+    } else if (cfg.type === 'number') {
+      html += `<div class="setting-group">
+        <div class="setting-row">
+          <span class="setting-label">${cfg.label}</span>
+          <input type="number" class="setting-num" id="si-${cfg.key}" min="${cfg.min}" max="${cfg.max}" value="${val}">
+        </div>
+      </div>`;
+    }
+  }
+  body.innerHTML = html;
+
+  // Wire sliders
+  for (const cfg of SETTINGS_CONFIG) {
+    if (cfg.type !== 'slider') continue;
+    const input = document.getElementById(`si-${cfg.key}`);
+    const display = document.getElementById(`sv-${cfg.key}`);
+    if (!input || !display) continue;
+    input.addEventListener('input', () => {
+      const v = parseFloat(input.value);
+      const d = cfg.format ? cfg.format(v) : v;
+      display.textContent = `${d}${cfg.unit}`;
+      settings[cfg.key] = v;
+      if (cfg.rebuild) needsRebuild = true;
+    });
+  }
+
+  // Wire toggles
+  for (const cfg of SETTINGS_CONFIG) {
+    if (cfg.type !== 'toggle') continue;
+    const btn = document.getElementById(`si-${cfg.key}`);
+    if (!btn) continue;
+    btn.addEventListener('click', () => {
+      settings[cfg.key] = !settings[cfg.key];
+      btn.classList.toggle('on', settings[cfg.key]);
+    });
+  }
+
+  // Wire number inputs
+  for (const cfg of SETTINGS_CONFIG) {
+    if (cfg.type !== 'number') continue;
+    const input = document.getElementById(`si-${cfg.key}`);
+    if (!input) continue;
+    input.addEventListener('input', () => {
+      const v = parseInt(input.value);
+      if (!isNaN(v) && v >= cfg.min && v <= cfg.max) {
+        settings[cfg.key] = v;
+        if (cfg.rebuild) needsRebuild = true;
+      }
+    });
+  }
+}
+
+function openSettings() {
+  buildSettingsUI();
+  document.getElementById('settings-overlay').classList.add('open');
+  settingsOpen = true;
+}
+
+function closeSettings() {
+  document.getElementById('settings-overlay').classList.remove('open');
+  settingsOpen = false;
+}
+
+function applySettings() {
+  closeSettings();
+  if (needsRebuild) {
+    initGrid();
+    needsRebuild = false;
+    resetStats();
+  }
+}
+
+function resetSettings() {
+  Object.assign(settings, structuredClone(SETTINGS_DEFAULTS));
+  buildSettingsUI();
+}
+
+function resetStats() {
+  tntEntities = [];
+  particles = [];
+  fallingBlocks = [];
+  tickCount = 0;
+  tntDetonated = 0;
+  blocksDestroyed = 0;
+  nextId = 1;
+}
+
+// Settings buttons
+document.getElementById('btn-settings').addEventListener('click', openSettings);
+document.getElementById('btn-settings-close').addEventListener('click', closeSettings);
+document.getElementById('btn-apply').addEventListener('click', applySettings);
+document.getElementById('btn-reset-all').addEventListener('click', resetSettings);
+
+// Close on overlay click
+document.getElementById('settings-overlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeSettings();
+});
+
 // ---- Keyboard ----
 window.addEventListener('keydown', e => {
+  // Settings panel global keys
+  if (settingsOpen) {
+    if (e.key === 'Escape') { closeSettings(); return; }
+    return; // Block all other keys when settings is open
+  }
+
   switch (e.key.toLowerCase()) {
     case ' ': e.preventDefault(); running = !running;
       document.getElementById('btn-run').textContent = running ? '\u23f8 PAUSE' : '\u25b6 RUN'; break;
