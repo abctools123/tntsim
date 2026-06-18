@@ -295,7 +295,6 @@ let mouseX = 0, mouseY = 0;
 let mouseDown = false;
 let rightDown = false;
 let lastGridPos = null;
-let screenShake = 0;
 let showHelp = true;
 
 // ---- Grid Init ----
@@ -318,7 +317,6 @@ function reset() {
   tickTimer = 0;
   mspt = 0;
   nextId = 1;
-  screenShake = 0;
   const btn = document.getElementById('btn-run');
   if (btn) btn.textContent = '\u25b6 RUN';
 }
@@ -494,8 +492,6 @@ function tick() {
     for (const t of result.triggered) {
       triggeredQueue.push(t);
     }
-
-    screenShake = Math.max(screenShake, e.power * 3);
   }
 
   if (totalDestroyed > 0) {
@@ -545,13 +541,6 @@ function tick() {
 function render() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  let shakeX = 0, shakeY = 0;
-  if (screenShake > 0.01) {
-    shakeX = (Math.random() - 0.5) * screenShake * 2;
-    shakeY = (Math.random() - 0.5) * screenShake * 2;
-    screenShake *= 0.85;
-  }
-
   const cs = settings.cellSize;
 
   const tl = screenToWorld(0, 0);
@@ -573,14 +562,14 @@ function render() {
     for (let gx = minGx; gx <= maxGx; gx++) {
       const p = worldToScreen(gx * cs, minGy * cs);
       const e = worldToScreen(gx * cs, maxGy * cs);
-      ctx.moveTo(p.x + shakeX, p.y + shakeY);
-      ctx.lineTo(e.x + shakeX, e.y + shakeY);
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(e.x, e.y);
     }
     for (let gy = minGy; gy <= maxGy; gy++) {
       const p = worldToScreen(minGx * cs, gy * cs);
       const e = worldToScreen(maxGx * cs, gy * cs);
-      ctx.moveTo(p.x + shakeX, p.y + shakeY);
-      ctx.lineTo(e.x + shakeX, e.y + shakeY);
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(e.x, e.y);
     }
     ctx.stroke();
   }
@@ -598,32 +587,32 @@ function render() {
       switch (cell) {
         case BlockType.STONE:
           ctx.fillStyle = '#5a5a6e';
-          ctx.fillRect(p.x + shakeX, p.y + shakeY, s, s);
+          ctx.fillRect(p.x, p.y, s, s);
           ctx.fillStyle = '#4a4a5c';
-          ctx.fillRect(p.x + shakeX + 2*zoom, p.y + shakeY + 2*zoom, s - 4*zoom, s - 4*zoom);
+          ctx.fillRect(p.x + 2*zoom, p.y + 2*zoom, s - 4*zoom, s - 4*zoom);
           break;
         case BlockType.TNT:
           ctx.fillStyle = '#d42020';
-          ctx.fillRect(p.x + shakeX, p.y + shakeY, s, s);
+          ctx.fillRect(p.x, p.y, s, s);
           ctx.fillStyle = '#ff3333';
-          ctx.fillRect(p.x + shakeX + 4*zoom, p.y + shakeY + 4*zoom, s - 8*zoom, s - 8*zoom);
+          ctx.fillRect(p.x + 4*zoom, p.y + 4*zoom, s - 8*zoom, s - 8*zoom);
           ctx.fillStyle = '#fff';
-          ctx.fillRect(p.x + shakeX + 2*zoom, p.y + shakeY + s/2 - 1*zoom, s - 4*zoom, 2*zoom);
-          ctx.fillRect(p.x + shakeX + s/2 - 1*zoom, p.y + shakeY + 2*zoom, 2*zoom, s - 4*zoom);
+          ctx.fillRect(p.x + 2*zoom, p.y + s/2 - 1*zoom, s - 4*zoom, 2*zoom);
+          ctx.fillRect(p.x + s/2 - 1*zoom, p.y + 2*zoom, 2*zoom, s - 4*zoom);
           break;
         case BlockType.OBSIDIAN:
           ctx.fillStyle = '#2a1550';
-          ctx.fillRect(p.x + shakeX, p.y + shakeY, s, s);
+          ctx.fillRect(p.x, p.y, s, s);
           ctx.fillStyle = '#1d0e38';
-          ctx.fillRect(p.x + shakeX + 2*zoom, p.y + shakeY + 2*zoom, s - 4*zoom, s - 4*zoom);
+          ctx.fillRect(p.x + 2*zoom, p.y + 2*zoom, s - 4*zoom, s - 4*zoom);
           break;
         case BlockType.BEDROCK:
           ctx.fillStyle = '#1a1a24';
-          ctx.fillRect(p.x + shakeX, p.y + shakeY, s, s);
+          ctx.fillRect(p.x, p.y, s, s);
           ctx.fillStyle = '#12121a';
           for (let i = 0; i < 3; i++) {
-            ctx.fillRect(p.x + shakeX + i * s/3, p.y + shakeY, 1*zoom, s);
-            ctx.fillRect(p.x + shakeX, p.y + shakeY + i * s/3, s, 1*zoom);
+            ctx.fillRect(p.x + i * s/3, p.y, 1*zoom, s);
+            ctx.fillRect(p.x, p.y + i * s/3, s, 1*zoom);
           }
           break;
       }
@@ -640,16 +629,16 @@ function render() {
 
     ctx.fillStyle = `rgba(255,80,40,${alpha * 0.5})`;
     ctx.beginPath();
-    ctx.roundRect(p.x + shakeX - s*0.3, p.y + shakeY - s*0.3, s*1.6, s*1.6, 4);
+    ctx.roundRect(p.x - s*0.3, p.y - s*0.3, s*1.6, s*1.6, 4);
     ctx.fill();
 
     ctx.fillStyle = `rgba(255,255,255,${alpha})`;
-    ctx.fillRect(p.x + shakeX, p.y + shakeY, s, s);
+    ctx.fillRect(p.x, p.y, s, s);
 
     ctx.fillStyle = '#000';
     ctx.font = `${Math.max(10, 14*zoom)}px "Share Tech Mono", monospace`;
     ctx.textAlign = 'center';
-    ctx.fillText(e.fuse, p.x + shakeX + s/2, p.y + shakeY + s/2 + 4*zoom);
+    ctx.fillText(e.fuse, p.x + s/2, p.y + s/2 + 4*zoom);
   }
 
   // Particles
@@ -661,7 +650,7 @@ function render() {
     ctx.shadowColor = `hsla(${p.hue}, 100%, 55%, ${alpha * 0.6})`;
     ctx.shadowBlur = r * 2;
     ctx.beginPath();
-    ctx.arc(pos.x + shakeX, pos.y + shakeY, r, 0, Math.PI * 2);
+    ctx.arc(pos.x, pos.y, r, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.shadowBlur = 0;
@@ -676,7 +665,7 @@ function render() {
           const p = worldToScreen((gx + dx) * cs, (gy + dy) * cs);
           ctx.strokeStyle = 'rgba(255,255,255,0.25)';
           ctx.lineWidth = 1;
-          ctx.strokeRect(p.x + shakeX, p.y + shakeY, cs * zoom, cs * zoom);
+          ctx.strokeRect(p.x, p.y, cs * zoom, cs * zoom);
         }
       }
     }
@@ -689,7 +678,7 @@ function render() {
       const p = worldToScreen(gx * cs, gy * cs);
       ctx.strokeStyle = mouseDown ? 'rgba(255,100,50,0.6)' : 'rgba(255,50,50,0.6)';
       ctx.lineWidth = 2;
-      ctx.strokeRect(p.x + shakeX, p.y + shakeY, cs * zoom, cs * zoom);
+      ctx.strokeRect(p.x, p.y, cs * zoom, cs * zoom);
     }
   }
 
@@ -733,7 +722,6 @@ function loop(timestamp) {
       p.life -= dt;
     }
     particles = particles.filter(p => p.life > 0);
-    if (screenShake > 0.01) screenShake *= 0.85;
   }
 
   camX += (targetCamX - camX) * 0.15;
