@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TNTSim — Blast Physics Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0a0c;
+  --surface: #111116;
+  --surface2: #16161d;
+  --border: #1e1e2a;
+  --text: #c8c8d4;
+  --text-dim: #6a6a7a;
+  --accent: #ff3b30;
+  --accent-glow: #ff6b4a;
+  --tnt: #ff2d20;
+  --explosion: #ff9500;
+  --stone: #5a5a6e;
+  --obsidian: #2d1b4e;
+  --bedrock: #1a1a22;
+  --grid: #191925;
+  --success: #30d158;
+  --warning: #ff9f0a;
+  --font-mono: 'Share Tech Mono', monospace;
+  --font-sans: 'Inter', system-ui, sans-serif;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+}
+
+#app {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1;
+}
+
+canvas {
+  display: block;
+  position: absolute;
+  inset: 0;
+}
+
+/* ---- HUD Top Bar ---- */
+#hud-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: linear-gradient(180deg, rgba(10,10,12,0.95) 0%, rgba(10,10,12,0) 100%);
+  z-index: 10;
+  pointer-events: none;
+}
+
+#hud-top > * { pointer-events: auto; }
+
+.hud-brand {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--text-dim);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.hud-brand span { color: var(--accent); font-weight: 700; }
+
+.hud-stats {
+  display: flex;
+  gap: 20px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.hud-stats .val {
+  color: var(--accent-glow);
+  font-weight: 700;
+}
+
+/* ---- Bottom Bar / Toolbar ---- */
+#toolbar {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 4px;
+  z-index: 10;
+  backdrop-filter: blur(12px);
+}
+
+.tool-btn {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.tool-btn:hover {
+  background: var(--surface2);
+  color: var(--text);
+}
+
+.tool-btn.active {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 0 12px rgba(255,59,48,0.3);
+}
+
+.tool-btn .key { opacity: 0.4; font-size: 10px; }
+
+/* ---- Help Panel ---- */
+#help-panel {
+  position: absolute;
+  top: 56px;
+  right: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 18px;
+  z-index: 10;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.8;
+  backdrop-filter: blur(12px);
+  display: none;
+}
+
+#help-panel.visible { display: block; }
+
+#help-panel kbd {
+  display: inline-block;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text);
+  margin: 0 2px;
+}
+
+/* ---- Block Indicator ---- */
+#block-indicator {
+  position: absolute;
+  pointer-events: none;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-radius: 2px;
+  z-index: 5;
+  display: none;
+}
+
+/* ---- Flash overlay ---- */
+#flash {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle, rgba(255,150,0,0.15) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0;
+  transition: opacity 0.08s ease-out;
+}
+
+#flash.fire { opacity: 1; }
+
+/* ---- Responsive ---- */
+@media (max-width: 768px) {
+  #toolbar { bottom: 8px; gap: 2px; }
+  .tool-btn { padding: 6px 10px; font-size: 10px; }
+  .hud-stats { gap: 10px; font-size: 10px; }
+  #help-panel { right: 4px; top: 44px; font-size: 10px; padding: 12px; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="canvas"></canvas>
+
+  <div id="hud-top">
+    <div class="hud-brand">TNT<span>SIM</span> <span style="color:#6a6a7a;font-size:10px">v1.0</span></div>
+    <div class="hud-stats">
+      <div>FUSE <span class="val" id="stat-fuse">—</span></div>
+      <div>ACTIVE <span class="val" id="stat-active">0</span></div>
+      <div>DETONATED <span class="val" id="stat-dets">0</span></div>
+      <div>MSPT <span class="val" id="stat-mspt">0.00</span></div>
+      <div>FPS <span class="val" id="stat-fps">60</span></div>
+    </div>
+  </div>
+
+  <div id="help-panel">
+    <kbd>LMB</kbd> Place block &nbsp; <kbd>RMB</kbd> Remove &nbsp; <kbd>MMB</kbd> Prime TNT<br>
+    <kbd>Space</kbd> Run/Pause &nbsp; <kbd>R</kbd> Reset &nbsp; <kbd>.</kbd> Step<br>
+    <kbd>1</kbd>-<kbd>4</kbd> Block type &nbsp; <kbd>[</kbd><kbd>]</kbd> Brush<br>
+    <kbd>WASD</kbd> Pan &nbsp; <kbd>Wheel</kbd> Zoom &nbsp; <kbd>H</kbd> Help<br>
+    <kbd>G</kbd> Grid &nbsp; <kbd>+</kbd><kbd>-</kbd> Speed
+  </div>
+
+  <div id="toolbar">
+    <button class="tool-btn active" data-block="1">STONE <span class="key">1</span></button>
+    <button class="tool-btn" data-block="2">TNT <span class="key">2</span></button>
+    <button class="tool-btn" data-block="3">OBSIDIAN <span class="key">3</span></button>
+    <button class="tool-btn" data-block="4">BEDROCK <span class="key">4</span></button>
+    <button class="tool-btn" id="btn-run">▶ RUN</button>
+    <button class="tool-btn" id="btn-reset">↺ RST</button>
+    <button class="tool-btn" id="btn-help">? HELP</button>
+  </div>
+
+  <div id="flash"></div>
+  <div id="block-indicator"></div>
+</div>
+
+<script>
+// ===================================================================
+// TNTSim Web — Blast Physics Simulator
+// ===================================================================
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const flash = document.getElementById('flash');
+
+// ---- State ----
+const BlockType = { AIR: 0, STONE: 1, TNT: 2, OBSIDIAN: 3, BEDROCK: 4 };
+
+const settings = {
+  gridW: 60, gridH: 40,
+  cellSize: 20,
+  tntPower: 4.0,
+  tntFuse: 4,
+  chainReaction: true,
+  brushSize: 1,
+  tickInterval: 0.4,
+  showGrid: true,
+};
+
+let grid = [];
+let tntEntities = [];
+let particles = [];
+let fallingBlocks = [];
+
+let tickCount = 0;
+let tntDetonated = 0;
+let blocksDestroyed = 0;
+let running = false;
+let tickTimer = 0;
+let mspt = 0;
+let currentBlock = BlockType.STONE;
+let nextId = 1;
+
+// Camera
+let camX = 0, camY = 0, zoom = 1;
+let targetCamX = 0, targetCamY = 0;
+
+// Input state
+let mouseX = 0, mouseY = 0;
+let mouseDown = false;
+let rightDown = false;
+let lastGridPos = null;
+let screenShake = 0;
+let showHelp = true;
+
+// ---- Grid Init ----
+function initGrid() {
+  grid = Array.from({length: settings.gridH}, () => new Array(settings.gridW).fill(BlockType.AIR));
+  for (let x = 0; x < settings.gridW; x++) {
+    grid[settings.gridH - 1][x] = BlockType.BEDROCK;
+  }
+}
+
+function reset() {
+  initGrid();
+  tntEntities = [];
+  particles = [];
+  fallingBlocks = [];
+  tickCount = 0;
+  tntDetonated = 0;
+  blocksDestroyed = 0;
+  running = false;
+  tickTimer = 0;
+  mspt = 0;
+  nextId = 1;
+  screenShake = 0;
+  const btn = document.getElementById('btn-run');
+  if (btn) btn.textContent = '\u25b6 RUN';
+}
+
+// ---- Canvas Resize ----
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  if (camX === 0 && camY === 0) {
+    camX = (settings.gridW * settings.cellSize) / 2 - canvas.width / 2;
+    camY = (settings.gridH * settings.cellSize) / 2 - canvas.height / 2;
+    targetCamX = camX;
+    targetCamY = camY;
+  }
+}
+window.addEventListener('resize', resize);
+
+// ---- Coordinate Transforms ----
+function screenToWorld(sx, sy) {
+  return {
+    x: (sx + camX) / zoom,
+    y: (sy + camY) / zoom,
+  };
+}
+
+function worldToScreen(wx, wy) {
+  return {
+    x: wx * zoom - camX,
+    y: wy * zoom - camY,
+  };
+}
+
+function gridFromScreen(sx, sy) {
+  const w = screenToWorld(sx, sy);
+  const cs = settings.cellSize;
+  return {
+    gx: Math.floor(w.x / cs),
+    gy: Math.floor(w.y / cs),
+  };
+}
+
+// ---- Block Placement ----
+function inBounds(gx, gy) {
+  return gx >= 0 && gx < settings.gridW && gy >= 0 && gy < settings.gridH;
+}
+
+function placeBlock(gx, gy, type) {
+  if (inBounds(gx, gy) && grid[gy][gx] === BlockType.AIR) {
+    grid[gy][gx] = type;
+  }
+}
+
+function placeBrush(gx, gy, type) {
+  const bs = settings.brushSize;
+  for (let dy = -bs + 1; dy < bs; dy++) {
+    for (let dx = -bs + 1; dx < bs; dx++) {
+      placeBlock(gx + dx, gy + dy, type);
+    }
+  }
+}
+
+function primeTNT(gx, gy) {
+  if (inBounds(gx, gy) && grid[gy][gx] === BlockType.TNT) {
+    grid[gy][gx] = BlockType.AIR;
+    tntEntities.push({
+      x: gx + 0.5, y: gy + 0.5,
+      fuse: settings.tntFuse,
+      power: settings.tntPower,
+      alive: true,
+      id: nextId++,
+    });
+  }
+}
+
+// ---- Explosion Calculator ----
+function calculateExplosion(ox, oy, power) {
+  const destroyed = [];
+  const triggered = [];
+  const rays = Math.floor(power * 4);
+
+  for (let i = 0; i < rays; i++) {
+    const angle = (i / rays) * Math.PI * 2 + (Math.random() - 0.5) * 0.3;
+    const dx = Math.cos(angle);
+    const dy = Math.sin(angle);
+    let strength = power * (0.7 + Math.random() * 0.6);
+    let cx = ox, cy = oy;
+
+    for (let step = 0; step < Math.floor(strength * 3); step++) {
+      cx += dx * 0.5;
+      cy += dy * 0.5;
+      const gx = Math.floor(cx);
+      const gy = Math.floor(cy);
+      if (!inBounds(gx, gy)) break;
+
+      const cell = grid[gy][gx];
+      if (cell === BlockType.AIR) continue;
+
+      if (cell === BlockType.TNT) {
+        triggered.push({gx, gy});
+        grid[gy][gx] = BlockType.AIR;
+        destroyed.push({gx, gy});
+        break;
+      } else if (cell === BlockType.STONE) {
+        if (strength > 0.5) {
+          grid[gy][gx] = BlockType.AIR;
+          destroyed.push({gx, gy});
+          strength -= 1.5;
+          if (strength <= 0) break;
+        } else break;
+      } else if (cell === BlockType.BEDROCK) {
+        if (strength > 4.0) {
+          grid[gy][gx] = BlockType.AIR;
+          destroyed.push({gx, gy});
+        }
+        break;
+      } else if (cell === BlockType.OBSIDIAN) {
+        if (strength > 2.5) {
+          grid[gy][gx] = BlockType.AIR;
+          destroyed.push({gx, gy});
+          strength -= 3.0;
+        } else break;
+      }
+    }
+  }
+
+  return { destroyed, triggered, rays };
+}
+
+// ---- Particles ----
+function spawnParticles(wx, wy, power) {
+  const count = Math.floor(power * 18);
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = (50 + Math.random() * 200) * (power / 3);
+    particles.push({
+      x: wx, y: wy,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 0.4 + Math.random() * 0.8,
+      maxLife: 1.0,
+      size: 2 + Math.random() * 4,
+      hue: 15 + Math.random() * 35,
+    });
+  }
+}
+
+// ---- Simulation Tick ----
+function tick() {
+  const t0 = performance.now();
+  tickCount++;
+
+  const newExplosions = [];
+  for (const e of tntEntities) {
+    if (!e.alive) continue;
+    e.fuse--;
+    if (e.fuse <= 0) {
+      e.alive = false;
+      newExplosions.push(e);
+    }
+  }
+  tntEntities = tntEntities.filter(e => e.alive);
+
+  let totalDestroyed = 0;
+  const triggeredQueue = [];
+  for (const e of newExplosions) {
+    const result = calculateExplosion(Math.floor(e.x), Math.floor(e.y), e.power);
+    tntDetonated++;
+    blocksDestroyed += result.destroyed.length;
+    totalDestroyed += result.destroyed.length;
+
+    spawnParticles(e.x, e.y, e.power);
+
+    for (const t of result.triggered) {
+      triggeredQueue.push(t);
+    }
+
+    screenShake = Math.max(screenShake, e.power * 3);
+  }
+
+  if (totalDestroyed > 0) {
+    flash.classList.add('fire');
+    setTimeout(() => flash.classList.remove('fire'), 80);
+  }
+
+  if (settings.chainReaction) {
+    for (const {gx, gy} of triggeredQueue) {
+      tntEntities.push({
+        x: gx + 0.5, y: gy + 0.5,
+        fuse: Math.max(0, settings.tntFuse - 1),
+        power: settings.tntPower,
+        alive: true,
+        id: nextId++,
+      });
+    }
+  }
+
+  for (const fb of fallingBlocks) {
+    if (!fb.alive) continue;
+    fb.vy += 500 / 60;
+    fb.y += fb.vy / 60;
+    const gx = Math.floor(fb.x);
+    const gy = Math.floor(fb.y);
+    if (gy >= settings.gridH || (inBounds(gx, gy) && grid[gy][gx] !== BlockType.AIR)) {
+      if (gy - 1 >= 0 && inBounds(gx, gy - 1) && grid[gy - 1][gx] === BlockType.AIR) {
+        grid[gy - 1][gx] = fb.type;
+      }
+      fb.alive = false;
+    }
+  }
+  fallingBlocks = fallingBlocks.filter(fb => fb.alive);
+
+  for (const p of particles) {
+    p.x += p.vx / 60;
+    p.y += p.vy / 60;
+    p.vy += 200 / 60;
+    p.life -= 1/60;
+  }
+  particles = particles.filter(p => p.life > 0);
+
+  mspt = performance.now() - t0;
+}
+
+// ---- Render ----
+function render() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  let shakeX = 0, shakeY = 0;
+  if (screenShake > 0.01) {
+    shakeX = (Math.random() - 0.5) * screenShake * 2;
+    shakeY = (Math.random() - 0.5) * screenShake * 2;
+    screenShake *= 0.85;
+  }
+
+  const cs = settings.cellSize;
+
+  const tl = screenToWorld(0, 0);
+  const br = screenToWorld(canvas.width, canvas.height);
+  const minGx = Math.max(0, Math.floor(tl.x / cs) - 1);
+  const maxGx = Math.min(settings.gridW, Math.floor(br.x / cs) + 2);
+  const minGy = Math.max(0, Math.floor(tl.y / cs) - 1);
+  const maxGy = Math.min(settings.gridH, Math.floor(br.y / cs) + 2);
+
+  // Background
+  ctx.fillStyle = '#0c0c12';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Grid lines
+  if (settings.showGrid && zoom > 0.3) {
+    ctx.strokeStyle = 'rgba(30,30,44,0.5)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let gx = minGx; gx <= maxGx; gx++) {
+      const p = worldToScreen(gx * cs, minGy * cs);
+      const e = worldToScreen(gx * cs, maxGy * cs);
+      ctx.moveTo(p.x + shakeX, p.y + shakeY);
+      ctx.lineTo(e.x + shakeX, e.y + shakeY);
+    }
+    for (let gy = minGy; gy <= maxGy; gy++) {
+      const p = worldToScreen(minGx * cs, gy * cs);
+      const e = worldToScreen(maxGx * cs, gy * cs);
+      ctx.moveTo(p.x + shakeX, p.y + shakeY);
+      ctx.lineTo(e.x + shakeX, e.y + shakeY);
+    }
+    ctx.stroke();
+  }
+
+  // Blocks
+  for (let gy = minGy; gy < maxGy; gy++) {
+    for (let gx = minGx; gx < maxGx; gx++) {
+      if (!inBounds(gx, gy)) continue;
+      const cell = grid[gy][gx];
+      if (cell === BlockType.AIR) continue;
+
+      const p = worldToScreen(gx * cs, gy * cs);
+      const s = cs * zoom;
+
+      switch (cell) {
+        case BlockType.STONE:
+          ctx.fillStyle = '#5a5a6e';
+          ctx.fillRect(p.x + shakeX, p.y + shakeY, s, s);
+          ctx.fillStyle = '#4a4a5c';
+          ctx.fillRect(p.x + shakeX + 2*zoom, p.y + shakeY + 2*zoom, s - 4*zoom, s - 4*zoom);
+          break;
+        case BlockType.TNT:
+          ctx.fillStyle = '#d42020';
+          ctx.fillRect(p.x + shakeX, p.y + shakeY, s, s);
+          ctx.fillStyle = '#ff3333';
+          ctx.fillRect(p.x + shakeX + 4*zoom, p.y + shakeY + 4*zoom, s - 8*zoom, s - 8*zoom);
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(p.x + shakeX + 2*zoom, p.y + shakeY + s/2 - 1*zoom, s - 4*zoom, 2*zoom);
+          ctx.fillRect(p.x + shakeX + s/2 - 1*zoom, p.y + shakeY + 2*zoom, 2*zoom, s - 4*zoom);
+          break;
+        case BlockType.OBSIDIAN:
+          ctx.fillStyle = '#2a1550';
+          ctx.fillRect(p.x + shakeX, p.y + shakeY, s, s);
+          ctx.fillStyle = '#1d0e38';
+          ctx.fillRect(p.x + shakeX + 2*zoom, p.y + shakeY + 2*zoom, s - 4*zoom, s - 4*zoom);
+          break;
+        case BlockType.BEDROCK:
+          ctx.fillStyle = '#1a1a24';
+          ctx.fillRect(p.x + shakeX, p.y + shakeY, s, s);
+          ctx.fillStyle = '#12121a';
+          for (let i = 0; i < 3; i++) {
+            ctx.fillRect(p.x + shakeX + i * s/3, p.y + shakeY, 1*zoom, s);
+            ctx.fillRect(p.x + shakeX, p.y + shakeY + i * s/3, s, 1*zoom);
+          }
+          break;
+      }
+    }
+  }
+
+  // TNT entities
+  for (const e of tntEntities) {
+    if (!e.alive) continue;
+    const p = worldToScreen(e.x * cs - cs/2, e.y * cs - cs/2);
+    const s = cs * zoom;
+    const fl = 0.5 + 0.5 * Math.sin(tickCount * 0.3 + e.id);
+    const alpha = 0.4 + 0.4 * fl;
+
+    ctx.fillStyle = `rgba(255,80,40,${alpha * 0.5})`;
+    ctx.beginPath();
+    ctx.roundRect(p.x + shakeX - s*0.3, p.y + shakeY - s*0.3, s*1.6, s*1.6, 4);
+    ctx.fill();
+
+    ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+    ctx.fillRect(p.x + shakeX, p.y + shakeY, s, s);
+
+    ctx.fillStyle = '#000';
+    ctx.font = `${Math.max(10, 14*zoom)}px "Share Tech Mono", monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillText(e.fuse, p.x + shakeX + s/2, p.y + shakeY + s/2 + 4*zoom);
+  }
+
+  // Particles
+  for (const p of particles) {
+    const pos = worldToScreen(p.x * cs, p.y * cs);
+    const alpha = p.life / p.maxLife;
+    const r = p.size * zoom;
+    ctx.fillStyle = `hsla(${p.hue}, 100%, 55%, ${alpha})`;
+    ctx.shadowColor = `hsla(${p.hue}, 100%, 55%, ${alpha * 0.6})`;
+    ctx.shadowBlur = r * 2;
+    ctx.beginPath();
+    ctx.arc(pos.x + shakeX, pos.y + shakeY, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.shadowBlur = 0;
+
+  // Brush preview
+  if (!rightDown && !mouseDown) {
+    const {gx, gy} = gridFromScreen(mouseX, mouseY);
+    if (inBounds(gx, gy)) {
+      const bs = settings.brushSize;
+      for (let dy = -bs + 1; dy < bs; dy++) {
+        for (let dx = -bs + 1; dx < bs; dx++) {
+          const p = worldToScreen((gx + dx) * cs, (gy + dy) * cs);
+          ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(p.x + shakeX, p.y + shakeY, cs * zoom, cs * zoom);
+        }
+      }
+    }
+  }
+
+  // Click indicator
+  if (mouseDown || rightDown) {
+    const {gx, gy} = gridFromScreen(mouseX, mouseY);
+    if (inBounds(gx, gy)) {
+      const p = worldToScreen(gx * cs, gy * cs);
+      ctx.strokeStyle = mouseDown ? 'rgba(255,100,50,0.6)' : 'rgba(255,50,50,0.6)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(p.x + shakeX, p.y + shakeY, cs * zoom, cs * zoom);
+    }
+  }
+
+  // Bottom gradient
+  const grad = ctx.createLinearGradient(0, canvas.height - 80, 0, canvas.height);
+  grad.addColorStop(0, 'rgba(10,10,12,0)');
+  grad.addColorStop(1, 'rgba(10,10,12,0.7)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, canvas.height - 80, canvas.width, 80);
+}
+
+// ---- Main Loop ----
+let lastTime = 0;
+let fpsCounter = 0;
+let fpsTime = 0;
+let currentFPS = 60;
+
+function loop(timestamp) {
+  const dt = Math.min((timestamp - lastTime) / 1000, 0.1);
+  lastTime = timestamp;
+
+  fpsCounter++;
+  fpsTime += dt;
+  if (fpsTime >= 0.5) {
+    currentFPS = Math.round(fpsCounter / fpsTime);
+    fpsCounter = 0;
+    fpsTime = 0;
+  }
+
+  if (running) {
+    tickTimer += dt;
+    while (tickTimer >= settings.tickInterval) {
+      tickTimer -= settings.tickInterval;
+      tick();
+    }
+  } else {
+    for (const p of particles) {
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vy += 200 * dt;
+      p.life -= dt;
+    }
+    particles = particles.filter(p => p.life > 0);
+    if (screenShake > 0.01) screenShake *= 0.85;
+  }
+
+  camX += (targetCamX - camX) * 0.15;
+  camY += (targetCamY - camY) * 0.15;
+
+  render();
+
+  document.getElementById('stat-active').textContent = tntEntities.filter(e => e.alive).length;
+  document.getElementById('stat-dets').textContent = tntDetonated;
+  document.getElementById('stat-mspt').textContent = mspt.toFixed(2);
+  document.getElementById('stat-fps').textContent = currentFPS;
+  document.getElementById('stat-fuse').textContent = settings.tntFuse;
+
+  requestAnimationFrame(loop);
+}
+
+// ---- Toolbar ----
+document.querySelectorAll('.tool-btn[data-block]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tool-btn[data-block]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentBlock = parseInt(btn.dataset.block);
+  });
+});
+
+document.getElementById('btn-run').addEventListener('click', () => {
+  running = !running;
+  document.getElementById('btn-run').textContent = running ? '\u23f8 PAUSE' : '\u25b6 RUN';
+});
+document.getElementById('btn-reset').addEventListener('click', reset);
+document.getElementById('btn-help').addEventListener('click', () => {
+  showHelp = !showHelp;
+  document.getElementById('help-panel').classList.toggle('visible', showHelp);
+});
+
+// ---- Keyboard ----
+window.addEventListener('keydown', e => {
+  switch (e.key.toLowerCase()) {
+    case ' ': e.preventDefault(); running = !running;
+      document.getElementById('btn-run').textContent = running ? '\u23f8 PAUSE' : '\u25b6 RUN'; break;
+    case 'r': reset(); break;
+    case 'g': settings.showGrid = !settings.showGrid; break;
+    case 'h': showHelp = !showHelp;
+      document.getElementById('help-panel').classList.toggle('visible', showHelp); break;
+    case '1': currentBlock = BlockType.STONE; updateToolbar(); break;
+    case '2': currentBlock = BlockType.TNT; updateToolbar(); break;
+    case '3': currentBlock = BlockType.OBSIDIAN; updateToolbar(); break;
+    case '4': currentBlock = BlockType.BEDROCK; updateToolbar(); break;
+    case '[': settings.brushSize = Math.max(1, settings.brushSize - 1); break;
+    case ']': settings.brushSize = Math.min(5, settings.brushSize + 1); break;
+    case '=': case '+': settings.tickInterval = Math.max(0.03, settings.tickInterval - 0.1); break;
+    case '-': settings.tickInterval = Math.min(2.0, settings.tickInterval + 0.1); break;
+    case '.': if (!running) tick(); break;
+  }
+});
+
+function updateToolbar() {
+  document.querySelectorAll('.tool-btn[data-block]').forEach(b => {
+    b.classList.toggle('active', parseInt(b.dataset.block) === currentBlock);
+  });
+}
+
+// ---- Mouse ----
+canvas.addEventListener('mousemove', e => {
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+
+  if (mouseDown) {
+    const {gx, gy} = gridFromScreen(mouseX, mouseY);
+    if (inBounds(gx, gy)) {
+      const key = `${gx},${gy}`;
+      if (key !== lastGridPos) {
+        lastGridPos = key;
+        placeBrush(gx, gy, currentBlock);
+      }
+    }
+  } else if (rightDown) {
+    const {gx, gy} = gridFromScreen(mouseX, mouseY);
+    if (inBounds(gx, gy)) {
+      const key = `${gx},${gy}`;
+      if (key !== lastGridPos) {
+        lastGridPos = key;
+        grid[gy][gx] = BlockType.AIR;
+      }
+    }
+  }
+});
+
+canvas.addEventListener('mousedown', e => {
+  if (e.button === 0) {
+    mouseDown = true;
+    const {gx, gy} = gridFromScreen(e.clientX, e.clientY);
+    if (inBounds(gx, gy)) {
+      lastGridPos = `${gx},${gy}`;
+      placeBrush(gx, gy, currentBlock);
+    }
+  } else if (e.button === 2) {
+    rightDown = true;
+    const {gx, gy} = gridFromScreen(e.clientX, e.clientY);
+    if (inBounds(gx, gy)) {
+      lastGridPos = `${gx},${gy}`;
+      grid[gy][gx] = BlockType.AIR;
+    }
+  } else if (e.button === 1) {
+    e.preventDefault();
+    const {gx, gy} = gridFromScreen(e.clientX, e.clientY);
+    primeTNT(gx, gy);
+  }
+});
+
+canvas.addEventListener('mouseup', e => {
+  if (e.button === 0) mouseDown = false;
+  if (e.button === 2) rightDown = false;
+  lastGridPos = null;
+});
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const oldW = screenToWorld(e.clientX, e.clientY);
+  zoom *= (1 - e.deltaY * 0.001);
+  zoom = Math.max(0.2, Math.min(6, zoom));
+  const newW = screenToWorld(e.clientX, e.clientY);
+  targetCamX += (oldW.x - newW.x) * zoom;
+  targetCamY += (oldW.y - newW.y) * zoom;
+  camX = targetCamX;
+  camY = targetCamY;
+}, {passive: false});
+
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+// ---- Touch ----
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (e.touches.length === 1) {
+    const t = e.touches[0];
+    mouseX = t.clientX;
+    mouseY = t.clientY;
+    mouseDown = true;
+    const {gx, gy} = gridFromScreen(t.clientX, t.clientY);
+    if (inBounds(gx, gy)) {
+      lastGridPos = `${gx},${gy}`;
+      placeBrush(gx, gy, currentBlock);
+    }
+  }
+}, {passive: false});
+
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (e.touches.length === 1 && mouseDown) {
+    const t = e.touches[0];
+    mouseX = t.clientX;
+    mouseY = t.clientY;
+    const {gx, gy} = gridFromScreen(t.clientX, t.clientY);
+    if (inBounds(gx, gy)) {
+      const key = `${gx},${gy}`;
+      if (key !== lastGridPos) {
+        lastGridPos = key;
+        placeBrush(gx, gy, currentBlock);
+      }
+    }
+  }
+}, {passive: false});
+
+canvas.addEventListener('touchend', () => {
+  mouseDown = false;
+  lastGridPos = null;
+});
+
+// ---- Init ----
+function init() {
+  resize();
+  initGrid();
+
+  // Demo: partial wall and TNT placements
+  for (let x = 20; x <= 40; x++) {
+    for (let y = 15; y <= 25; y++) {
+      if (Math.random() < 0.6) placeBlock(x, y, BlockType.STONE);
+    }
+  }
+  placeBlock(28, 14, BlockType.TNT);
+  placeBlock(30, 14, BlockType.TNT);
+  placeBlock(32, 14, BlockType.TNT);
+
+  document.getElementById('help-panel').classList.add('visible');
+  requestAnimationFrame(loop);
+}
+
+init();
+</script>
+</body>
+</html>
